@@ -1,6 +1,12 @@
 # Resume Helper
 
-A local CV tailoring tool that helps you build job-specific resumes from a master file of your career. Built around the philosophy that your resume should be uniquely *you*, not a generic list of qualifications.
+A desktop CV tailoring tool that helps you build job-specific resumes from a master file of your career. Built around the philosophy that your resume should be uniquely *you*, not a generic list of qualifications.
+
+## Download
+
+**[Download Resume Helper v1.0.0 (Windows)](https://github.com/UnitBuilds-CC/Resume-Helper/releases/download/v1.0.0/Resume.Helper_1.0.0_x64-setup.exe)**
+
+77MB standalone installer. Includes everything — no Node.js or terminal required. Just install and run.
 
 ## How It Works
 
@@ -12,56 +18,49 @@ A local CV tailoring tool that helps you build job-specific resumes from a maste
 6. **Iterate** — Answer gap-analysis questions, add new blocks, re-compile until your score hits 90+
 7. **Export PDF** — Download a polished, professional PDF
 
-## Setup
+## Desktop App vs Development
 
-### Prerequisites
+### Desktop App (Recommended)
 
-- Node.js 18+ (LTS recommended)
+Download the installer from [Releases](https://github.com/UnitBuilds-CC/Resume-Helper/releases). It bundles:
+- Tauri runtime (native window, no Chromium)
+- Node.js v22 (runs the API server)
+- Express API + SQLite database
+- React frontend
 
-### Install
+Data is stored in your AppData directory. The API server starts silently when you launch the app.
+
+### Development Setup
+
+**Prerequisites:** Node.js 18+, Rust (for Tauri builds)
 
 ```bash
+git clone https://github.com/UnitBuilds-CC/Resume-Helper.git
+cd Resume-Helper
 npm install
 ```
 
-### Development
-
+**Run in development:**
 ```bash
-npm run dev
+npm run dev          # Web UI only (Express + Vite)
+npm run mcp          # MCP server (for AI clients)
 ```
 
-This starts:
-- **Express API** on `http://localhost:3000`
-- **Vite dev server** on `http://localhost:5173` (with hot reload)
-
-Open `http://localhost:5173` in your browser.
-
-### Production Build
-
+**Build desktop app:**
 ```bash
-npm run build
-npm start
+npm run tauri:build  # Produces NSIS installer in src-tauri/target/release/bundle/
 ```
-
-The Express server serves both the API and the built frontend on port 3000.
 
 ## MCP Configuration
 
-> **Full walkthrough:** See [USER-GUIDE.md](./USER-GUIDE.md) for step-by-step instructions on connecting Claude Desktop, Qoder, Cursor, and other AI clients, plus the complete CV tailoring workflow.
+Resume Helper exposes 9 MCP tools that let any AI client (Claude Desktop, Qoder, Cursor, etc.) interact with your data.
 
-The MCP server exposes 9 tools that let any AI client (Qoder, Claude Desktop, etc.) interact with your data.
+> **Full walkthrough:** See [USER-GUIDE.md](./USER-GUIDE.md) for step-by-step instructions on connecting your AI client, plus the complete CV tailoring workflow with example prompts.
 
-### Run the MCP server
+### Quick Setup
 
-```bash
-npm run mcp
-```
+Add this to your AI client's MCP configuration:
 
-### Configure your AI client
-
-Add this to your MCP client configuration:
-
-**Qoder** (`.qoder/settings.json`):
 ```json
 {
   "mcpServers": {
@@ -74,18 +73,10 @@ Add this to your MCP client configuration:
 }
 ```
 
-**Claude Desktop** (`claude_desktop_config.json`):
-```json
-{
-  "mcpServers": {
-    "resume-helper": {
-      "command": "npx",
-      "args": ["tsx", "src/server/mcp/index.ts"],
-      "cwd": "/path/to/resume-helper"
-    }
-  }
-}
-```
+Config file locations:
+- **Claude Desktop:** `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+- **Qoder:** `.qoder/settings.json` in your project root
+- **Cursor:** `.cursor/mcp.json` in your project root
 
 ### Available MCP Tools
 
@@ -96,12 +87,12 @@ Add this to your MCP client configuration:
 | `get_template_cv` | Get template CV with education and employment |
 | `list_job_postings` | List job postings (filterable by status) |
 | `get_job_posting` | Get a full job posting by ID |
-| `prepare_compilation` | Bundle all context for compiling a tailored CV |
+| `prepare_compilation` | Bundle all context for compiling a tailored CV (one call) |
 | `save_compiled_cv` | Save an AI-compiled CV (auto-versions) |
-| `prepare_red_team` | Bundle all context for red team evaluation |
+| `prepare_red_team` | Bundle all context for red team evaluation (one call) |
 | `save_red_team_result` | Save evaluation scores + gap-analysis questions |
 
-### Typical AI Workflow
+### AI Workflow
 
 ```
 1. AI calls prepare_compilation(job_posting_id=1)
@@ -126,33 +117,44 @@ Add this to your MCP client configuration:
 ```
 src/
 ├── server/
-│   ├── index.ts          # Express API server
-│   ├── db.ts             # SQLite schema and connection
-│   ├── routes/           # REST endpoints for web UI
+│   ├── index.ts              # Express API server
+│   ├── db.ts                 # SQLite schema and connection
+│   ├── routes/               # REST endpoints (systems, blocks, jobs, etc.)
 │   ├── services/
 │   │   ├── file-reader.ts    # PDF/DOCX/TXT/MD text extraction
 │   │   └── pdf-generator.ts  # Markdown → HTML → Puppeteer PDF
 │   └── mcp/
-│       ├── index.ts      # MCP server entry (stdio transport)
-│       └── tools.ts      # 9 MCP tool definitions
+│       ├── index.ts          # MCP server entry (stdio transport)
+│       └── tools.ts          # 9 MCP tool definitions
 ├── client/
-│   ├── App.tsx           # React router
-│   ├── pages/            # Dashboard, Systems, Blocks, etc.
-│   ├── components/       # Layout, TagInput, FileUpload, ScoreGauge
-│   └── hooks/            # useApi
+│   ├── App.tsx               # React router
+│   ├── pages/                # Dashboard, Systems, Blocks, Template CV, etc.
+│   ├── components/           # Layout, TagInput, FileUpload, Toast, ConfirmDialog
+│   └── hooks/                # api() helper with retry logic
 └── shared/
-    └── types.ts          # TypeScript interfaces
+    └── types.ts              # TypeScript interfaces
+src-tauri/
+├── src/main.rs               # Tauri entry point (auto-starts API server)
+├── tauri.conf.json           # Tauri configuration
+├── Cargo.toml                # Rust dependencies
+└── resources/                # Bundled Node.js + server for desktop app
 templates/
-└── cv-template.html      # Puppeteer print template
-data/
-└── resume-helper.db    # SQLite database (auto-created)
+└── cv-template.html          # PDF print template
 ```
 
 ## Tech Stack
 
-- **Backend**: Express 5 + TypeScript
-- **Frontend**: React 19 + Vite + Tailwind CSS 4
-- **Database**: SQLite (better-sqlite3)
-- **MCP**: @modelcontextprotocol/sdk (stdio transport)
-- **PDF**: Puppeteer (HTML → PDF)
-- **File Import**: pdf-parse (PDF), mammoth (DOCX)
+| Layer | Technology |
+|-------|-----------|
+| Desktop | Tauri 2 (Rust + system webview) |
+| Frontend | React 19 + Vite + Tailwind CSS 4 |
+| Backend | Express 5 + TypeScript |
+| Database | SQLite (better-sqlite3) |
+| AI Integration | MCP (@modelcontextprotocol/sdk) |
+| PDF | Puppeteer (HTML → PDF) |
+| File Import | pdf-parse (PDF), mammoth (DOCX) |
+| Bundler | esbuild (server), Vite (client) |
+
+## License
+
+MIT
