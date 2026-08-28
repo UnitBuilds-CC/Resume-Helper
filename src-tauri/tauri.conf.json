@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/nicegui/main/tauri-schema.json",
+  "productName": "Resume Helper",
+  "version": "1.0.0",
+  "identifier": "com.unitbuilds.resume-helper",
+  "build": {
+    "beforeDevCommand": "npm run dev:client",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npx vite build && npx esbuild src/server/index.ts --bundle --platform=node --format=cjs --outfile=src-tauri/resources/server/index.cjs --external:better-sqlite3 --external:pdf-parse --external:puppeteer --external:mammoth",
+    "frontendDist": "../dist/client"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Resume Helper",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' https://tauri.localhost tauri://localhost; connect-src 'self' http://localhost:3000 https://localhost:3000; style-src 'self' 'unsafe-inline'; img-src 'self' asset://localhost https://asset.localhost data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "resources/**/*"
+    ]
+  }
+}
