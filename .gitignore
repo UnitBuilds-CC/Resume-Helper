@@ -1,0 +1,21 @@
+node_modules/
+dist/
+data/*.db
+data/*.db-journal
+.node/
+*.zip
+uploads/
+
+# Tauri
+src-tauri/target/
+src-tauri/resources/server/node_modules/
+src-tauri/resources/node/
+src-tauri/resources/src_server/
+src-tauri/resources/src_shared/
+
+# OS
+Thumbs.db
+.DS_Store
+src-tauri/data/
+src/shared/*.js
+src/shared/*.d.ts
