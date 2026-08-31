@@ -15,16 +15,26 @@ router.get('/', (_req, res) => {
 });
 
 router.put('/', (req, res) => {
-  const { full_name, email, phone, location, linkedin, website, summary } = req.body;
-  db.prepare(
-    `UPDATE template_cv SET
-      full_name = COALESCE(?, full_name), email = COALESCE(?, email),
-      phone = COALESCE(?, phone), location = COALESCE(?, location),
-      linkedin = COALESCE(?, linkedin), website = COALESCE(?, website),
-      summary = COALESCE(?, summary), updated_at = datetime('now')
-     WHERE id = 1`
-  ).run(full_name ?? null, email ?? null, phone ?? null, location ?? null,
-       linkedin ?? null, website ?? null, summary ?? null);
+  const { full_name, email, phone, location, linkedin, website, summary, professional_title } = req.body;
+  
+  // Build dynamic update query
+  const updates: string[] = [];
+  const params: unknown[] = [];
+  
+  if (full_name !== undefined) { updates.push('full_name = ?'); params.push(full_name); }
+  if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+  if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+  if (location !== undefined) { updates.push('location = ?'); params.push(location); }
+  if (linkedin !== undefined) { updates.push('linkedin = ?'); params.push(linkedin); }
+  if (website !== undefined) { updates.push('website = ?'); params.push(website); }
+  if (summary !== undefined) { updates.push('summary = ?'); params.push(summary); }
+  if (professional_title !== undefined) { updates.push('professional_title = ?'); params.push(professional_title); }
+  
+  if (updates.length > 0) {
+    updates.push("updated_at = datetime('now')");
+    db.prepare(`UPDATE template_cv SET ${updates.join(', ')} WHERE id = 1`).run(...params);
+  }
+  
   res.json(getFullTemplate());
 });
 

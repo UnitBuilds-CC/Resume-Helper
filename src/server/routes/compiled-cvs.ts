@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { generatePdf } from '../services/pdf-generator.js';
+import { validateForAts } from '../services/ats-validator.js';
 
 const router = Router();
 
@@ -52,21 +53,49 @@ router.get('/:id/pdf', async (req, res) => {
   if (!cv) return res.status(404).json({ error: 'not found' });
 
   const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
+  const jobPosting = db.prepare('SELECT * FROM job_postings WHERE id = ?').get(cv.job_posting_id) as any;
   const contact = [templateCv?.email, templateCv?.phone, templateCv?.location, templateCv?.linkedin, templateCv?.website].filter(Boolean).join(' | ');
+
+  const keywords: string[] = [];
+  if (jobPosting) {
+    const text = `${jobPosting.title || ''} ${jobPosting.description || ''} ${jobPosting.requirements || ''}`.toLowerCase();
+    const techKeywords = [
+      'rust', 'typescript', 'python', 'go', 'docker', 'kubernetes', 'aws', 'gcp',
+      'postgres', 'react', 'node', 'api', 'backend', 'remote', 'microservices',
+    ];
+    keywords.push(...techKeywords.filter(kw => text.includes(kw)));
+  }
 
   try {
     const pdf = await generatePdf({
       name: templateCv?.full_name || 'Your Name',
+      title: templateCv?.professional_title || '',
       contact,
       summary: templateCv?.summary || '',
       content: cv.content,
+      jobTitle: jobPosting?.title || '',
+      jobCompany: jobPosting?.company || '',
+      keywords,
     });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="cv-${cv.id}.pdf"`);
+    const filename = jobPosting
+      ? `${templateCv?.full_name?.replace(/\s+/g, '_') || 'CV'}_${jobPosting.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'CV'}.pdf`
+      : `cv-${cv.id}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdf);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'PDF generation failed';
     res.status(500).json({ error: message });
+  }
+});
+
+router.get('/:id/validate', (req, res) => {
+  try {
+    const result = validateForAts(db, Number(req.params.id));
+    res.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Validation failed';
+    res.status(400).json({ error: message });
   }
 });
 

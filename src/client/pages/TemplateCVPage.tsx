@@ -4,7 +4,7 @@ import type { TemplateCV, Education, Employment } from '../../shared/types';
 
 export default function TemplateCVPage() {
   const [cv, setCv] = useState<TemplateCV | null>(null);
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', location: '', linkedin: '', website: '', summary: '' });
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', location: '', linkedin: '', website: '', summary: '', professional_title: '' });
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
 
@@ -12,7 +12,7 @@ export default function TemplateCVPage() {
     const res = await api('/api/template-cv');
     const data = await res.json();
     setCv(data);
-    setForm({ full_name: data.full_name ?? '', email: data.email ?? '', phone: data.phone ?? '', location: data.location ?? '', linkedin: data.linkedin ?? '', website: data.website ?? '', summary: data.summary ?? '' });
+    setForm({ full_name: data.full_name ?? '', email: data.email ?? '', phone: data.phone ?? '', location: data.location ?? '', linkedin: data.linkedin ?? '', website: data.website ?? '', summary: data.summary ?? '', professional_title: data.professional_title ?? '' });
     setLoading(false);
   }
 
@@ -68,6 +68,7 @@ export default function TemplateCVPage() {
         <h3 className="section-title mb-4">Personal Info</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <input placeholder="Full name" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} className="input w-full" />
+          <input placeholder="Professional title" value={form.professional_title} onChange={e => setForm({ ...form, professional_title: e.target.value })} className="input w-full" />
           <input placeholder="Email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input w-full" />
           <input placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input w-full" />
           <input placeholder="Location" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} className="input w-full" />

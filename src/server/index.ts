@@ -13,6 +13,12 @@ import importRouter from './routes/import.js';
 import compiledCvsRouter from './routes/compiled-cvs.js';
 import redTeamRouter from './routes/red-team.js';
 import questionsRouter from './routes/questions.js';
+import questionnairesRouter from './routes/questionnaires.js';
+import jobSearchRouter from './routes/job-search.js';
+import gitRouter from './routes/git.js';
+import coverLettersRouter from './routes/cover-letters.js';
+import projectsRouter from './routes/projects.js';
+import jobMatchRouter from './routes/job-match.js';
 
 const __dirname = typeof import.meta.url === 'string'
   ? dirname(fileURLToPath(import.meta.url))
@@ -40,6 +46,12 @@ app.use('/api/import', importRouter);
 app.use('/api/compiled-cvs', compiledCvsRouter);
 app.use('/api/red-team', redTeamRouter);
 app.use('/api/questions', questionsRouter);
+app.use('/api/questionnaires', questionnairesRouter);
+app.use('/api/job-search', jobSearchRouter);
+app.use('/api/git', gitRouter);
+app.use('/api/cover-letters', coverLettersRouter);
+app.use('/api/projects', projectsRouter);
+app.use('/api/job-match', jobMatchRouter);
 
 app.get('/api/dashboard', (_req, res) => {
   const systems_count = (db.prepare('SELECT COUNT(*) as c FROM systems').get() as any).c;

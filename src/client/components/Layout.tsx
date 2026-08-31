@@ -3,13 +3,19 @@ import { NavLink, Outlet } from 'react-router-dom';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '◈' },
+  { to: '/profile', label: 'My Profile', icon: '👤' },
   { to: '/systems', label: 'Systems', icon: '⬡' },
   { to: '/blocks', label: 'Blocks', icon: '▤' },
   { to: '/template', label: 'Template CV', icon: '◎' },
+  { to: '/job-search', label: 'Job Search', icon: '⊕' },
   { to: '/jobs', label: 'Job Postings', icon: '◆' },
+  { to: '/questionnaire', label: 'Questionnaires', icon: '▣' },
   { to: '/compiled', label: 'Compiled CVs', icon: '❖' },
   { to: '/red-team', label: 'Red Team', icon: '◉' },
   { to: '/questions', label: 'Questions', icon: '◌' },
+  { to: '/git', label: 'Git Integration', icon: '⎇' },
+  { to: '/cover-letters', label: 'Cover Letters', icon: '✉' },
+  { to: '/match', label: 'Job Match', icon: '◐' },
 ];
 
 export default function Layout() {

@@ -3,6 +3,29 @@ import { useState, useEffect } from 'react';
 import { useToast } from '../components/Toast';
 import type { CompiledCV } from '../../shared/types';
 
+interface ValidationResult {
+  check: string;
+  status: 'pass' | 'warning' | 'fail';
+  message: string;
+  detail?: string;
+}
+
+interface AtsValidationResult {
+  score: number;
+  passed: boolean;
+  results: ValidationResult[];
+  metadata: {
+    name: string;
+    title: string;
+    email: string;
+    phone: string;
+    location: string;
+    job_title: string;
+    job_company: string;
+    keywords: string[];
+  };
+}
+
 export default function CompiledCVsPage() {
   const { toast } = useToast();
   const [cvs, setCvs] = useState<(CompiledCV & { job_title?: string; job_company?: string })[]>([]);
@@ -10,6 +33,9 @@ export default function CompiledCVsPage() {
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [loading, setLoading] = useState(true);
+  const [validationResult, setValidationResult] = useState<AtsValidationResult | null>(null);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [pendingDownloadId, setPendingDownloadId] = useState<number | null>(null);
 
   async function load() {
     const res = await api('/api/compiled-cvs');
@@ -37,6 +63,27 @@ export default function CompiledCVsPage() {
     await api(`/api/compiled-cvs/${id}`, { method: 'DELETE' });
     if (selected?.id === id) setSelected(null);
     load();
+  }
+
+  async function validateAndDownload(id: number) {
+    try {
+      const res = await api(`/api/compiled-cvs/${id}/validate`);
+      const result: AtsValidationResult = await res.json();
+      setValidationResult(result);
+      setPendingDownloadId(id);
+      setShowValidationModal(true);
+    } catch (err) {
+      toast('Validation failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  }
+
+  function proceedWithDownload() {
+    if (!pendingDownloadId) return;
+    const base = window.location.port === '3000' ? '' : 'http://localhost:3000';
+    window.open(`${base}/api/compiled-cvs/${pendingDownloadId}/pdf`, '_blank');
+    setShowValidationModal(false);
+    setPendingDownloadId(null);
+    setValidationResult(null);
   }
 
   function downloadPdf(id: number) {
@@ -103,7 +150,7 @@ export default function CompiledCVsPage() {
                   ) : (
                     <>
                       <button onClick={copyToClipboard} className="btn-secondary text-xs">Copy</button>
-                      <button onClick={() => downloadPdf(selected.id)} className="btn-secondary text-xs">Download PDF</button>
+                      <button onClick={() => validateAndDownload(selected.id)} className="btn-secondary text-xs">Download PDF</button>
                       <button onClick={() => setEditMode(true)} className="btn-secondary text-xs">Edit</button>
                     </>
                   )}
@@ -122,6 +169,58 @@ export default function CompiledCVsPage() {
           )}
         </div>
       </div>
+
+      {showValidationModal && validationResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6 border-b border-cream-300/40">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-sapphire-800">ATS Compatibility Check</h3>
+                <button onClick={() => setShowValidationModal(false)} className="text-sapphire-400 hover:text-sapphire-600 text-xl">×</button>
+              </div>
+              <div className="mt-4 flex items-center gap-4">
+                <div className={`text-4xl font-bold ${validationResult.score >= 80 ? 'text-mint-600' : validationResult.score >= 60 ? 'text-sapphire-600' : 'text-teal-600'}`}>
+                  {validationResult.score}%
+                </div>
+                <div>
+                  <div className={`text-sm font-medium ${validationResult.passed ? 'text-mint-600' : 'text-teal-600'}`}>
+                    {validationResult.passed ? '✓ Ready to download' : '✗ Issues found'}
+                  </div>
+                  <div className="text-xs text-sapphire-400 mt-1">
+                    {validationResult.results.filter(r => r.status === 'pass').length} passed, {validationResult.results.filter(r => r.status === 'warning').length} warnings, {validationResult.results.filter(r => r.status === 'fail').length} failures
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-3">
+              {validationResult.results.map((result, idx) => (
+                <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-cream-50/40">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {result.status === 'pass' && <span className="text-mint-600 text-lg">✓</span>}
+                    {result.status === 'warning' && <span className="text-sapphire-600 text-lg">⚠</span>}
+                    {result.status === 'fail' && <span className="text-teal-600 text-lg">✗</span>}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-sapphire-800">{result.check}</div>
+                    <div className="text-sm text-sapphire-600 mt-0.5">{result.message}</div>
+                    {result.detail && <div className="text-xs text-sapphire-400 mt-1">{result.detail}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-6 border-t border-cream-300/40 flex gap-3 justify-end">
+              <button onClick={() => setShowValidationModal(false)} className="btn-secondary text-sm">Cancel</button>
+              {validationResult.passed ? (
+                <button onClick={proceedWithDownload} className="btn-primary text-sm">Download PDF</button>
+              ) : (
+                <button onClick={proceedWithDownload} className="btn-secondary text-sm">Download Anyway</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
