@@ -1,6 +1,6 @@
 [package]
 name = "resume-helper"
-version = "1.0.0"
+version = "1.1.0"
 description = "Tailor your CV to any job with AI"
 authors = ["UnitBuilds"]
 edition = "2021"

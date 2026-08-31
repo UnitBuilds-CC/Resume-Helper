@@ -4,7 +4,7 @@ A desktop CV tailoring tool that helps you build job-specific resumes from a mas
 
 ## Download
 
-**[Download Resume Helper v1.0.0 (Windows)](https://github.com/UnitBuilds-CC/Resume-Helper/releases/download/v1.0.0/Resume.Helper_1.0.0_x64-setup.exe)**
+**[Download Resume Helper v1.1.0 (Windows)](https://github.com/UnitBuilds-CC/Resume-Helper/releases/download/v1.1.0/Resume.Helper_1.1.0_x64-setup.exe)**
 
 77MB standalone installer. Includes everything — no Node.js or terminal required. Just install and run.
 
