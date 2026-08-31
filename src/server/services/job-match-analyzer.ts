@@ -108,8 +108,9 @@ function extractRequiredSkills(text: string): string[] {
   const lower = text.toLowerCase();
 
   const skillPatterns = [
-    /\b(rust|c\+\+|java|python|ruby|go(?:lang)?|typescript|javascript|kotlin|swift|scala|elixir|erlang|haskell|clojure|php|perl|lua|matlab|dart|zig|nim|ocaml|fsharp)\b/gi,
-    /\b(c programming|c language|r programming|r language|c#|c sharp)\b/gi,
+    /\b(rust|java|python|ruby|go(?:lang)?|typescript|javascript|kotlin|swift|scala|elixir|erlang|haskell|clojure|php|perl|lua|matlab|dart|zig|nim|ocaml|fsharp)\b/gi,
+    /\b(c\+\+|c#|c sharp)(?!\w)/gi,
+    /\b(c programming|c language|r programming|r language)\b/gi,
     /\b(react|vue|angular|svelte|next\.?js|nuxt|remix|ember|backbone)\b/gi,
     /\b(node\.?js|express|fastify|nest|deno|bun)\b/gi,
     /\b(django|flask|fastapi|rails|spring|laravel|asp\.net|gin|actix|rocket|axum)\b/gi,
@@ -228,7 +229,7 @@ function scoreTechnicalSkills(
       techIndicators += (techText.match(p) || []).length;
     }
 
-    const isNonTechnical = techIndicators <= 2;
+    const isNonTechnical = techIndicators < 2;
     return {
       dimension_name: 'Technical Skills',
       score: isNonTechnical ? 20 : 50,

@@ -44,7 +44,7 @@ function extractHeadings(content: string): string[] {
   return headings;
 }
 
-function checkContactInfo(templateCv: any): ValidationResult[] {
+export function checkContactInfo(templateCv: any): ValidationResult[] {
   const results: ValidationResult[] = [];
 
   if (!templateCv?.full_name?.trim()) {
@@ -81,7 +81,7 @@ function checkContactInfo(templateCv: any): ValidationResult[] {
   return results;
 }
 
-function checkRequiredSections(content: string): ValidationResult[] {
+export function checkRequiredSections(content: string): ValidationResult[] {
   const results: ValidationResult[] = [];
   const text = extractText(content);
   const headings = extractHeadings(content).map(h => h.toLowerCase());
@@ -114,7 +114,7 @@ function checkRequiredSections(content: string): ValidationResult[] {
   return results;
 }
 
-function checkContentQuality(content: string): ValidationResult[] {
+export function checkContentQuality(content: string): ValidationResult[] {
   const results: ValidationResult[] = [];
   const text = extractText(content);
 
@@ -145,7 +145,7 @@ function checkContentQuality(content: string): ValidationResult[] {
   return results;
 }
 
-function checkAtsCompatibility(content: string): ValidationResult[] {
+export function checkAtsCompatibility(content: string): ValidationResult[] {
   const results: ValidationResult[] = [];
 
   const hasTables = /\|.*\|.*\|/.test(content) && /---\|/.test(content);
