@@ -17,7 +17,7 @@ function makeProfile(overrides: {
     professional_title: 'Senior Software Engineer',
     email: 'test@example.com',
     phone: '+1234567890',
-    location: 'Henties Bay, Namibia',
+    location: 'Testville, Testland',
     linkedin: null,
     website: null,
     summary: 'Experienced software engineer with expertise in Rust, TypeScript, and systems programming.',

@@ -56,7 +56,7 @@ router.put('/education/:id', (req, res) => {
      sort_order = COALESCE(?, sort_order) WHERE id = ?`
   ).run(institution ?? null, degree ?? null, field ?? null,
         start_date ?? null, end_date ?? null, details ?? null,
-        sort_order ?? 0, req.params.id);
+        sort_order ?? null, req.params.id);
   res.json(getFullTemplate());
 });
 
@@ -83,7 +83,7 @@ router.put('/employment/:id', (req, res) => {
      location = COALESCE(?, location), description = COALESCE(?, description),
      sort_order = COALESCE(?, sort_order) WHERE id = ?`
   ).run(company ?? null, title ?? null, start_date ?? null, end_date ?? null,
-        location ?? null, description ?? null, sort_order ?? 0, req.params.id);
+        location ?? null, description ?? null, sort_order ?? null, req.params.id);
   res.json(getFullTemplate());
 });
 
