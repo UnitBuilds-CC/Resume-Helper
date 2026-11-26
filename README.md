@@ -136,7 +136,7 @@ Config file locations:
 | `list_cover_letters` | List all generated cover letters |
 | `get_cover_letter` | Get a specific cover letter |
 | `generate_cover_letter` | Generate a cover letter for a job posting |
-| `save_cover_letter` | Save a cover letter |
+| `save_cover_letter` | Append a new version of a cover letter |
 
 ### AI Workflow
 

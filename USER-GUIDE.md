@@ -164,7 +164,11 @@ Tell your AI:
 The AI will:
 1. Pull your profile, blocks, and the job posting
 2. Write a tailored cover letter
-3. Call `save_cover_letter(job_posting_id=1, content="...")` to save it
+3. Call `generate_cover_letter(job_posting_id=1)` to create the first version, then
+   `save_cover_letter(cover_letter_id=<id from that result>, content="...")` to revise it
+
+`save_cover_letter` takes the cover letter's own id, not the job posting id, and each call
+appends a new version so earlier drafts stay readable.
 
 You'll see it in the web UI under "Cover Letters."
 
@@ -262,7 +266,7 @@ Once you're happy:
 | `list_cover_letters` | List all generated cover letters |
 | `get_cover_letter` | Get a specific cover letter |
 | `generate_cover_letter` | Generate a cover letter for a job posting |
-| `save_cover_letter` | Save a cover letter |
+| `save_cover_letter` | Append a new version of a cover letter |
 
 ---
 
