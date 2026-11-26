@@ -332,39 +332,68 @@ export async function generatePdf(data: PdfData): Promise<Uint8Array> {
     links?: Array<{text: string; url: string}>;
   }): { endY: number } {
     const { x, y: startY, size, font, color = rgb(0, 0, 0), maxWidth, lineHeight = size * 1.4, links = [] } = options;
-    
+
     // Split text by newlines first, then process each line
     const textLines = text.split('\n');
     let currentY = startY;
-    
+
     for (const textLine of textLines) {
-      // Split text into words, preserving markdown formatting
-      const sanitized = sanitizeText(textLine);
-      const words = sanitized.split(' ');
-      let line = '';
-      
+      // Parse inline markdown FIRST before word splitting
+      const segments = parseInlineMarkdown(textLine);
+      let currentLine = '';
+      let currentSegments: TextSegment[] = [];
+
       function flushLine() {
-        if (!line) return;
-        drawFormattedLine(line, x, currentY, size, font, color, links);
+        if (!currentLine) return;
+        // Reconstruct the line with markdown markers for drawFormattedLine
+        let reconstructed = '';
+        for (const seg of currentSegments) {
+          if (seg.bold && seg.italic) {
+            reconstructed += `***${seg.text}***`;
+          } else if (seg.bold) {
+            reconstructed += `**${seg.text}**`;
+          } else if (seg.italic) {
+            reconstructed += `*${seg.text}*`;
+          } else {
+            reconstructed += seg.text;
+          }
+        }
+        drawFormattedLine(reconstructed, x, currentY, size, font, color, links);
         currentY -= lineHeight;
-        line = '';
+        currentLine = '';
+        currentSegments = [];
       }
-      
-      for (const word of words) {
-        const testLine = line ? line + ' ' + word : word;
-        const testWidth = formattedLineWidth(testLine, size);
-        
-        if (testWidth > maxWidth && line) {
-          flushLine();
-          line = word;
-        } else {
-          line = testLine;
+
+      // Process each segment and wrap words while preserving formatting
+      for (const segment of segments) {
+        const sanitized = sanitizeText(segment.text);
+        const words = sanitized.split(' ');
+
+        for (const word of words) {
+          const testLine = currentLine ? currentLine + ' ' + word : word;
+          const testWidth = formattedLineWidth(testLine, size);
+
+          if (testWidth > maxWidth && currentLine) {
+            flushLine();
+            currentLine = word;
+            currentSegments = [{ text: word, bold: segment.bold, italic: segment.italic }];
+          } else {
+            currentLine = testLine;
+            // Update or add segment for this word
+            if (currentSegments.length > 0 &&
+                currentSegments[currentSegments.length - 1].bold === segment.bold &&
+                currentSegments[currentSegments.length - 1].italic === segment.italic) {
+              currentSegments[currentSegments.length - 1].text += (currentSegments[currentSegments.length - 1].text ? ' ' : '') + word;
+            } else {
+              currentSegments.push({ text: word, bold: segment.bold, italic: segment.italic });
+            }
+          }
         }
       }
-      
+
       flushLine();
     }
-    
+
     return { endY: currentY };
   }
   
