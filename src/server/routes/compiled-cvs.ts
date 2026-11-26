@@ -66,12 +66,15 @@ router.get('/:id/pdf', async (req, res) => {
     keywords.push(...techKeywords.filter(kw => text.includes(kw)));
   }
 
+  // A tailored CV may carry its own Executive Summary; the profile-pad summary is the fallback, not the override.
+  const ownSummary = (cv.content || '').replace(/\r\n/g, '\n').match(/^## Executive Summary\n([\s\S]+?)(?=\n## )/m)?.[1]?.trim();
+
   try {
     const pdf = await generatePdf({
       name: templateCv?.full_name || 'Your Name',
-      title: templateCv?.professional_title || '',
+      title: jobPosting?.title || templateCv?.professional_title || '',
       contact,
-      summary: templateCv?.summary || '',
+      summary: ownSummary || templateCv?.summary || '',
       content: cv.content,
       jobTitle: jobPosting?.title || '',
       jobCompany: jobPosting?.company || '',
