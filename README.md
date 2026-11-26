@@ -34,6 +34,11 @@ Download the installer from [Releases](https://github.com/UnitBuilds-CC/Resume-H
 
 Data is stored in your AppData directory. The API server starts silently when you launch the app.
 
+> **Known issue in v1.1.0:** uploading a **PDF** job posting fails — the bundled server returns
+> `{"error":"pdfParse is not a function"}` (measured 2026-11-26 against the same bundle blob v1.1.0
+> ships). DOCX, TXT and Markdown upload are unaffected, and pasting the job text always works. Fixed
+> on `main`; the fix reaches installers only after the bundle is rebuilt (`npm run tauri build`).
+
 ### Development Setup
 
 **Prerequisites:** Node.js 18+, Rust (for Tauri builds)
