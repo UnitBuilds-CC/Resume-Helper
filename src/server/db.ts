@@ -173,6 +173,11 @@ if (!seedTemplate.get()) {
 try { db.exec(`ALTER TABLE template_cv ADD COLUMN professional_title TEXT DEFAULT ''`); } catch {}
 try { db.exec(`ALTER TABLE blocks ADD COLUMN is_generic INTEGER DEFAULT 1`); } catch {}
 try { db.exec(`ALTER TABLE blocks ADD COLUMN target_companies TEXT DEFAULT ''`); } catch {}
+// Added post-release; CREATE TABLE IF NOT EXISTS never alters an existing DB, so
+// save_red_team_result failed on every database created before these columns existed.
+try { db.exec(`ALTER TABLE red_team_results ADD COLUMN recommendation TEXT`); } catch {}
+try { db.exec(`ALTER TABLE red_team_results ADD COLUMN red_flags TEXT`); } catch {}
+try { db.exec(`ALTER TABLE red_team_results ADD COLUMN job_fit_summary TEXT`); } catch {}
 
 // Settings table for app preferences (e.g., language)
 db.exec(`
