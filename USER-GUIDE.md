@@ -130,13 +130,18 @@ The scorecard identifies gaps you may be able to fill with new blocks.
 ### 4c. Compile a Tailored CV
 
 Tell your AI:
-> "Compile a CV for job posting #1 using my scratch pads. Use prepare_compilation to get all the context, then write a tailored CV in Markdown that highlights the most relevant experience for this role. Save it with save_compiled_cv."
+> "Compile a CV for job posting #1 using my scratch pads. Use prepare_compilation to get all the context, then write a tailored CV in Markdown that highlights the most relevant experience for this role. Save it with POST /api/compiled-cvs."
 
 The AI will:
 1. Call `prepare_compilation(job_posting_id=1)` to get your job posting + profile + all scratch pad data
 2. Analyze the job requirements against your experience
 3. Write a tailored CV in Markdown, cherry-picking relevant blocks and skills
-4. Call `save_compiled_cv(job_posting_id=1, content="...")` to save it
+4. Call `POST /api/compiled-cvs` with `{job_posting_id, content}` to save it
+
+There is no MCP tool for saving a compiled CV — `prepare_compilation` only reads context, so the
+REST route is the create path. It assigns `version = MAX(version) + 1` per job posting, so a revised
+CV becomes a new row rather than replacing the old one, and `job_postings.compiled_cv_id` has to be
+pointed at the new row once you are happy with it.
 
 You'll see the compiled CV appear in the web UI under "Compiled CVs."
 

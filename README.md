@@ -146,8 +146,9 @@ Config file locations:
 
 2. AI compiles a tailored CV in Markdown
 
-3. AI calls save_compiled_cv(job_posting_id=1, content="# My CV...")
-   → saved as version 1
+3. AI stores the CV: POST /api/compiled-cvs {job_posting_id:1, content:"# My CV..."}
+   → saved as version 1 (no save_compiled_cv MCP tool exists; this route is the create path
+     and assigns version = MAX(version)+1 for that job posting)
 
 4. AI calls prepare_red_team(compiled_cv_id=1)
    → receives: compiled CV + all context for evaluation
