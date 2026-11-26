@@ -214,6 +214,8 @@ Check your dashboard in the web UI for an overview of all applications.
 Once you're happy:
 - **Copy:** Click "Copy" on the compiled CV in the web UI to copy the Markdown to your clipboard
 - **PDF:** Click "Download PDF" to get a polished, ATS-validated PDF with compatibility scoring and metadata embedding
+  - The header line under your name uses the linked job posting's title, falling back to the Profile pad's professional title when no posting is linked.
+  - The header summary paragraph is taken from the compiled CV's own `## Executive Summary` section when it has one, so a tailored CV exports with its tailored summary; otherwise it falls back to the Profile pad summary. The duplicated body section is dropped, never rendered twice.
 
 ---
 
