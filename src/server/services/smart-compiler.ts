@@ -1,6 +1,8 @@
 // Smart compilation service
 // Intelligently selects relevant content from database based on job requirements
 
+import { blockAppliesToCompany } from './block-scope.js';
+
 interface JobPosting {
   id: number;
   title: string;
@@ -55,6 +57,8 @@ interface Block {
   employment_ids?: number[];
   system_ids?: number[];
   project_ids?: number[];
+  is_generic?: boolean;
+  target_companies?: string | null;
 }
 
 interface Project {
@@ -246,7 +250,7 @@ export function compileProfile(input: CompilationInput): CompilationOutput {
   
   // 3. For each employment, select relevant blocks
   const employmentWithBlocks: EmploymentWithBlocks[] = scoredEmployment.slice(0, 3).map(emp => {
-    const relatedBlocks = blocks.filter(b => b.employment_ids?.includes(emp.id));
+    const relatedBlocks = blocks.filter(b => b.employment_ids?.includes(emp.id) && blockAppliesToCompany(b, jobPosting.company));
     const scoredBlocks = relatedBlocks.map(b => ({
       ...b,
       score: calculateBlockRelevance(b, jobKeywords)

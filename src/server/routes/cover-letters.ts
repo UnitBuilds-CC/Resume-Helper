@@ -17,8 +17,11 @@ router.get('/', (_req, res) => {
 });
 
 // GET /api/cover-letters/:job_posting_id - Get latest cover letter for a job
-router.get('/:job_posting_id', (req, res) => {
+router.get('/:job_posting_id', (req, res, next) => {
   const jobPostingId = Number(req.params.job_posting_id);
+  if (isNaN(jobPostingId)) {
+    return next();
+  }
   const coverLetter = db.prepare(`
     SELECT cl.*, jp.title as job_title, jp.company as job_company
     FROM cover_letters cl
@@ -34,11 +37,38 @@ router.get('/:job_posting_id', (req, res) => {
   res.json(coverLetter);
 });
 
+// GET /api/cover-letters/download/:id - Export as PDF
+router.get('/download/:id', async (req, res) => {
+  const coverLetter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id) as any;
+  if (!coverLetter) {
+    return res.status(404).json({ error: 'Cover letter not found' });
+  }
+  
+  try {
+    const pdf = await generatePdf({
+      name: '',
+      title: '',
+      contact: '',
+      summary: '',
+      content: coverLetter.content,
+    });
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="cover-letter-${coverLetter.id}.pdf"`);
+    res.send(pdf);
+  } catch (error) {
+    res.status(500).json({ error: 'PDF generation failed' });
+  }
+});
+
 // GET /api/cover-letters/:job_posting_id/:version - Get specific version
-router.get('/:job_posting_id/:version', (req, res) => {
+router.get('/:job_posting_id/:version', (req, res, next) => {
   const jobPostingId = Number(req.params.job_posting_id);
   const version = Number(req.params.version);
   
+  if (isNaN(jobPostingId) || isNaN(version)) {
+    return next();
+  }
   const coverLetter = db.prepare(`
     SELECT cl.*, jp.title as job_title, jp.company as job_company
     FROM cover_letters cl
@@ -66,7 +96,15 @@ router.post('/:job_posting_id', (req, res) => {
   const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
   
   // Get systems and blocks
-  const systems = db.prepare('SELECT * FROM systems ORDER BY updated_at DESC').all() as any[];
+  const systemRows = db.prepare('SELECT * FROM systems ORDER BY updated_at DESC').all() as any[];
+  const systems = systemRows.map(s => ({
+    id: s.id,
+    title: s.name,
+    name: s.name,
+    description: s.description,
+    industry: s.industry,
+    notes: s.notes,
+  }));
   const blockRows = db.prepare(`
     SELECT b.*, GROUP_CONCAT(s.name) as skill_names
     FROM blocks b
@@ -80,6 +118,8 @@ router.post('/:job_posting_id', (req, res) => {
     title: r.title,
     content: r.content,
     skills: r.skill_names ? r.skill_names.split(',') : [],
+    is_generic: r.is_generic === 1,
+    target_companies: r.target_companies || '',
   }));
   
   // Get employment
@@ -137,30 +177,6 @@ router.delete('/:id', (req, res) => {
     return res.status(404).json({ error: 'Cover letter not found' });
   }
   res.json({ deleted: true });
-});
-
-// GET /api/cover-letters/:id/pdf - Export as PDF
-router.get('/:id/pdf', async (req, res) => {
-  const coverLetter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id) as any;
-  if (!coverLetter) {
-    return res.status(404).json({ error: 'Cover letter not found' });
-  }
-  
-  try {
-    const pdf = await generatePdf({
-      name: '',
-      title: '',
-      contact: '',
-      summary: '',
-      content: coverLetter.content,
-    });
-    
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="cover-letter-${coverLetter.id}.pdf"`);
-    res.send(pdf);
-  } catch (error) {
-    res.status(500).json({ error: 'PDF generation failed' });
-  }
 });
 
 export default router;

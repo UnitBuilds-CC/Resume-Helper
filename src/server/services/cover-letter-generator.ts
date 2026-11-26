@@ -1,6 +1,8 @@
 // Cover letter generator service
 // Generates tailored cover letters from database content
 
+import { blockAppliesToCompany } from './block-scope.js';
+
 interface JobPosting {
   id: number;
   title: string;
@@ -33,6 +35,8 @@ interface Block {
   title: string;
   content: string;
   skills: string[];
+  is_generic?: boolean;
+  target_companies?: string | null;
 }
 
 interface Employment {
@@ -85,14 +89,15 @@ function calculateRelevance(
   item: { title: string; description?: string | null; content?: string; skills?: string[] },
   keywords: string[]
 ): number {
-  const text = `${item.title} ${item.description || ''} ${item.content || ''} ${(item.skills || []).join(' ')}`.toLowerCase();
+  const title = item.title || '';
+  const text = `${title} ${item.description || ''} ${item.content || ''} ${(item.skills || []).join(' ')}`.toLowerCase();
   let score = 0;
   
   for (const keyword of keywords) {
     if (text.includes(keyword)) {
       score += 1;
       // Bonus for title match
-      if (item.title.toLowerCase().includes(keyword)) {
+      if (title.toLowerCase().includes(keyword)) {
         score += 2;
       }
       // Bonus for skill match
@@ -165,7 +170,9 @@ export function generateCoverLetter(
   // 2. Score systems/blocks by relevance
   const scoredItems = [
     ...systems.map(s => ({ type: 'system', item: s, score: calculateRelevance(s, jobKeywords) })),
-    ...blocks.map(b => ({ type: 'block', item: b, score: calculateRelevance(b, jobKeywords) }))
+    ...blocks
+      .filter(b => blockAppliesToCompany(b, jobPosting.company))
+      .map(b => ({ type: 'block', item: b, score: calculateRelevance(b, jobKeywords) }))
   ].sort((a, b) => b.score - a.score);
   
   // 3. Generate cover letter structure
