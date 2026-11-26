@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import db from '../db.js';
+import { saveCoverLetterAsNewVersion } from '../services/cover-letter-versions.js';
 
 export function registerTools(server: McpServer) {
   // 1. list_systems
@@ -100,15 +101,16 @@ export function registerTools(server: McpServer) {
       const projects = db.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all();
 
       const blockRows = db.prepare(`
-        SELECT b.*, GROUP_CONCAT(s.name) as skill_names,
+        SELECT b.*, GROUP_CONCAT(DISTINCT s.name) as skill_names,
                GROUP_CONCAT(DISTINCT be.employment_id) as employment_ids,
-               GROUP_CONCAT(DISTINCT bs.system_id) as system_ids,
+               GROUP_CONCAT(DISTINCT bsys.system_id) as system_ids,
                GROUP_CONCAT(DISTINCT bp.project_id) as project_ids
         FROM blocks b 
         LEFT JOIN block_skills bs ON bs.block_id = b.id
-        LEFT JOIN block_employment be ON be.block_id = b.id
-        LEFT JOIN block_projects bp ON bp.block_id = b.id
         LEFT JOIN skills s ON s.id = bs.skill_id
+        LEFT JOIN block_employment be ON be.block_id = b.id
+        LEFT JOIN block_systems bsys ON bsys.block_id = b.id
+        LEFT JOIN block_projects bp ON bp.block_id = b.id
         GROUP BY b.id
       `).all() as any[];
       
@@ -120,6 +122,8 @@ export function registerTools(server: McpServer) {
         employment_ids: r.employment_ids ? r.employment_ids.split(',').map(Number) : [],
         system_ids: r.system_ids ? r.system_ids.split(',').map(Number) : [],
         project_ids: r.project_ids ? r.project_ids.split(',').map(Number) : [],
+        is_generic: r.is_generic === 1,
+        target_companies: r.target_companies || '',
       }));
 
       // Use smart compiler to intelligently select relevant content
@@ -1092,6 +1096,8 @@ export function registerTools(server: McpServer) {
         title: r.title,
         content: r.content,
         skills: r.skill_names ? r.skill_names.split(',') : [],
+        is_generic: r.is_generic === 1,
+        target_companies: r.target_companies || '',
       }));
       
       // Get employment
@@ -1131,17 +1137,16 @@ export function registerTools(server: McpServer) {
       content: z.string().describe('Updated cover letter content'),
     },
     async ({ cover_letter_id, content }) => {
-      db.prepare(
-        "UPDATE cover_letters SET content = ?, updated_at = datetime('now') WHERE id = ?"
-      ).run(content, cover_letter_id);
-      
+      const saved = saveCoverLetterAsNewVersion(db, cover_letter_id, content);
+      if (!saved) return { content: [{ type: 'text', text: `Cover letter ${cover_letter_id} not found` }], isError: true };
+
       const coverLetter = db.prepare(`
         SELECT cl.*, jp.title as job_title, jp.company as job_company
         FROM cover_letters cl
         JOIN job_postings jp ON jp.id = cl.job_posting_id
         WHERE cl.id = ?
-      `).get(cover_letter_id);
-      
+      `).get(saved.id);
+
       return { content: [{ type: 'text', text: JSON.stringify(coverLetter, null, 2) }] };
     }
   );
