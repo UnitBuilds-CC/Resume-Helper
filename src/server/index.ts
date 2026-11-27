@@ -20,6 +20,7 @@ import gitRouter from './routes/git.js';
 import coverLettersRouter from './routes/cover-letters.js';
 import projectsRouter from './routes/projects.js';
 import jobMatchRouter from './routes/job-match.js';
+import timelineRouter from './routes/timeline.js';
 
 const __dirname = typeof import.meta.url === 'string'
   ? dirname(fileURLToPath(import.meta.url))
@@ -53,6 +54,7 @@ app.use('/api/git', gitRouter);
 app.use('/api/cover-letters', coverLettersRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/job-match', jobMatchRouter);
+app.use('/api/timeline', timelineRouter);
 
 app.get('/api/dashboard', (_req, res) => {
   const systems_count = (db.prepare('SELECT COUNT(*) as c FROM systems').get() as any).c;

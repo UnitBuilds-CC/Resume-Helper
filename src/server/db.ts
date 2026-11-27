@@ -179,6 +179,15 @@ try { db.exec(`ALTER TABLE red_team_results ADD COLUMN recommendation TEXT`); } 
 try { db.exec(`ALTER TABLE red_team_results ADD COLUMN red_flags TEXT`); } catch {}
 try { db.exec(`ALTER TABLE red_team_results ADD COLUMN job_fit_summary TEXT`); } catch {}
 
+// How much of a date the owner actually vouches for. A year-only record must stay honest rather than being
+// padded to a fake day or rejected by a validator that only understands precision it invented.
+try { db.exec(`ALTER TABLE employment ADD COLUMN start_precision TEXT DEFAULT 'month'`); } catch {}
+try { db.exec(`ALTER TABLE employment ADD COLUMN end_precision TEXT DEFAULT 'month'`); } catch {}
+try { db.exec(`ALTER TABLE education ADD COLUMN start_precision TEXT DEFAULT 'month'`); } catch {}
+try { db.exec(`ALTER TABLE education ADD COLUMN end_precision TEXT DEFAULT 'month'`); } catch {}
+// The commitment during a period, so a CV can say which job was primary when two overlap.
+try { db.exec(`ALTER TABLE employment ADD COLUMN commitment TEXT DEFAULT 'full_time'`); } catch {}
+
 // Settings table for app preferences (e.g., language)
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (

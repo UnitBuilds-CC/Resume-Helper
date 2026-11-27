@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { assertClaimsGrounded } from './timeline.js';
 
 export interface CoverLetterVersion {
   id: number;
@@ -14,12 +15,16 @@ export interface CoverLetterVersion {
 export function saveCoverLetterAsNewVersion(
   db: Database.Database,
   coverLetterId: number,
-  content: string
+  content: string,
+  acknowledge?: unknown
 ): CoverLetterVersion | null {
   const existing = db
     .prepare('SELECT job_posting_id FROM cover_letters WHERE id = ?')
     .get(coverLetterId) as { job_posting_id: number } | undefined;
   if (!existing) return null;
+
+  // A letter is the most-read document in the application, and it is the one an agent rewrites most often.
+  assertClaimsGrounded(db, content, 'cover letter', acknowledge);
 
   const top = db
     .prepare('SELECT MAX(version) AS max_version FROM cover_letters WHERE job_posting_id = ?')

@@ -1,14 +1,18 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { labeled, writeEducation, writeEmployment } from '../services/timeline-store.js';
 
 const router = Router();
 
 function getFullTemplate() {
   const cv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
-  const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all();
-  const employment = db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all();
+  const education = labeled(db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all());
+  const employment = labeled(db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all());
   return { ...cv, education, employment };
 }
+
+// Labels come from timeline-store, the same function the desktop app and GET /api/timeline use. A second
+// renderer here would be a second opinion about what "April 2025" means.
 
 router.get('/', (_req, res) => {
   res.json(getFullTemplate());
@@ -17,11 +21,11 @@ router.get('/', (_req, res) => {
 // BlocksPage and ProfilePage fetch these two collections directly; only the combined GET / existed, so the
 // client's JSON parse threw on the SPA fallback and both pages never finished loading.
 router.get('/education', (_req, res) => {
-  res.json(db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all());
+  res.json(labeled(db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all()));
 });
 
 router.get('/employment', (_req, res) => {
-  res.json(db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all());
+  res.json(labeled(db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all()));
 });
 
 router.put('/', (req, res) => {
@@ -49,24 +53,12 @@ router.put('/', (req, res) => {
 });
 
 router.post('/education', (req, res) => {
-  const { institution, degree, field, start_date, end_date, details, sort_order } = req.body;
-  db.prepare(
-    'INSERT INTO education (institution, degree, field, start_date, end_date, details, sort_order) VALUES (?,?,?,?,?,?,?)'
-  ).run(institution ?? null, degree ?? null, field ?? null,
-        start_date ?? null, end_date ?? null, details ?? null, sort_order ?? 0);
+  writeEducation(db, null, req.body);
   res.status(201).json(getFullTemplate());
 });
 
 router.put('/education/:id', (req, res) => {
-  const { institution, degree, field, start_date, end_date, details, sort_order } = req.body;
-  db.prepare(
-    `UPDATE education SET institution = COALESCE(?, institution), degree = COALESCE(?, degree),
-     field = COALESCE(?, field), start_date = COALESCE(?, start_date),
-     end_date = COALESCE(?, end_date), details = COALESCE(?, details),
-     sort_order = COALESCE(?, sort_order) WHERE id = ?`
-  ).run(institution ?? null, degree ?? null, field ?? null,
-        start_date ?? null, end_date ?? null, details ?? null,
-        sort_order ?? null, req.params.id);
+  writeEducation(db, Number(req.params.id), req.body);
   res.json(getFullTemplate());
 });
 
@@ -77,23 +69,12 @@ router.delete('/education/:id', (req, res) => {
 });
 
 router.post('/employment', (req, res) => {
-  const { company, title, start_date, end_date, location, description, sort_order } = req.body;
-  db.prepare(
-    'INSERT INTO employment (company, title, start_date, end_date, location, description, sort_order) VALUES (?,?,?,?,?,?,?)'
-  ).run(company ?? null, title ?? null, start_date ?? null, end_date ?? null,
-        location ?? null, description ?? null, sort_order ?? 0);
+  writeEmployment(db, null, req.body);
   res.status(201).json(getFullTemplate());
 });
 
 router.put('/employment/:id', (req, res) => {
-  const { company, title, start_date, end_date, location, description, sort_order } = req.body;
-  db.prepare(
-    `UPDATE employment SET company = COALESCE(?, company), title = COALESCE(?, title),
-     start_date = COALESCE(?, start_date), end_date = COALESCE(?, end_date),
-     location = COALESCE(?, location), description = COALESCE(?, description),
-     sort_order = COALESCE(?, sort_order) WHERE id = ?`
-  ).run(company ?? null, title ?? null, start_date ?? null, end_date ?? null,
-        location ?? null, description ?? null, sort_order ?? null, req.params.id);
+  writeEmployment(db, Number(req.params.id), req.body);
   res.json(getFullTemplate());
 });
 

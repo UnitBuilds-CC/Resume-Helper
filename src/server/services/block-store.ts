@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { assertClaimsGrounded } from './timeline.js';
 import { StoreError } from './job-posting-store.js';
 
 export interface BlockInput {
@@ -10,6 +11,7 @@ export interface BlockInput {
   employment_ids?: unknown;
   system_ids?: unknown;
   project_ids?: unknown;
+  acknowledge?: unknown;
 }
 
 const idsFrom = (csv: unknown) => (csv ? String(csv).split(',').map(Number) : []);
@@ -143,6 +145,7 @@ export function saveBlockLinks(
 export function createBlock(db: Database.Database, input: BlockInput) {
   if (typeof input.title !== 'string' || !input.title.trim()) throw new StoreError('title is required');
   if (typeof input.content !== 'string' || !input.content.trim()) throw new StoreError('content is required');
+  assertClaimsGrounded(db, input.title + '\n' + input.content, 'block', input.acknowledge);
 
   const problems: string[] = [];
   const employmentIds = asIdList(input.employment_ids, 'employment_ids', problems);
@@ -167,7 +170,12 @@ export function createBlock(db: Database.Database, input: BlockInput) {
 }
 
 export function updateBlock(db: Database.Database, id: number, input: BlockInput) {
-  readBlock(db, id);
+  const before = readBlock(db, id);
+  if (typeof input.title === 'string' || typeof input.content === 'string') {
+    assertClaimsGrounded(db,
+      String(input.title ?? before.title) + '\n' + String(input.content ?? before.content),
+      'block', input.acknowledge);
+  }
   db.prepare(
     `UPDATE blocks SET title = COALESCE(?, title), content = COALESCE(?, content),
      is_generic = COALESCE(?, is_generic), target_companies = COALESCE(?, target_companies),

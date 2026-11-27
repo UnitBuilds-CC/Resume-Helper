@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { createCompiledCv } from './compiled-cv-store.js';
 import { StoreError } from './job-posting-store.js';
+import { renderDate, type DatePrecision } from './timeline.js';
 
 export interface AssemblyChoice {
   job_posting_id: number;
@@ -8,6 +9,13 @@ export interface AssemblyChoice {
   system_ids?: number[];
   include_education?: boolean;
   include_employment?: boolean;
+}
+
+/** Dates in a CV are rendered from the record and its declared precision, never copied from prose. */
+function renderLabel(row: any, which: 'start' | 'end' = 'start'): string {
+  const iso = row[which + '_date'];
+  if (!iso) return which === 'end' ? 'Present' : '';
+  return renderDate(iso, null, (row[which + '_precision'] || 'month') as DatePrecision);
 }
 
 function selectByIds(db: Database.Database, table: string, ids: number[], label: string) {
@@ -76,7 +84,7 @@ export function assembleCv(db: Database.Database, choice: AssemblyChoice) {
     markdown += '## Professional Experience\n\n';
     for (const emp of employment) {
       markdown += `### ${emp.title} — ${emp.company}\n`;
-      markdown += `*${emp.start_date} – ${emp.end_date || 'Present'} | ${emp.location || ''}*\n\n`;
+      markdown += `*${renderLabel(emp)} | ${emp.location || ''}*\n\n`;
       markdown += `${emp.description}\n\n`;
     }
   }
@@ -85,7 +93,7 @@ export function assembleCv(db: Database.Database, choice: AssemblyChoice) {
     markdown += '## Education\n\n';
     for (const edu of education) {
       markdown += `### ${edu.institution}\n`;
-      markdown += `${edu.degree || ''}${edu.field ? ` in ${edu.field}` : ''} (${edu.start_date || ''} - ${edu.end_date || ''})\n`;
+      markdown += `${edu.degree || ''}${edu.field ? ` in ${edu.field}` : ''} (${renderLabel(edu)} - ${renderLabel(edu, 'end')})\n`;
       if (edu.details) markdown += `${edu.details}\n`;
       markdown += '\n';
     }

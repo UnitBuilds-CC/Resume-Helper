@@ -29,7 +29,7 @@ router.get('/:id', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
-  res.json(updateCompiledCv(db, req.params.id, req.body.content));
+  res.json(updateCompiledCv(db, req.params.id, req.body.content, req.body.acknowledge));
 });
 
 router.delete('/:id', (req, res) => {

@@ -93,8 +93,8 @@ export default function TemplateCVPage() {
                 <input placeholder="Field" defaultValue={edu.field ?? ''} onBlur={e => updateEducation(edu, 'field', e.target.value)} className="input w-full" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                <input placeholder="Start date" defaultValue={edu.start_date ?? ''} onBlur={e => updateEducation(edu, 'start_date', e.target.value)} className="input w-full" />
-                <input placeholder="End date" defaultValue={edu.end_date ?? ''} onBlur={e => updateEducation(edu, 'end_date', e.target.value)} className="input w-full" />
+                <input placeholder="Start date" defaultValue={edu.start_label ?? ''} onBlur={e => updateEducation(edu, 'start_date', e.target.value)} className="input w-full" />
+                <input placeholder="End date" defaultValue={edu.end_label ?? ''} onBlur={e => updateEducation(edu, 'end_date', e.target.value)} className="input w-full" />
                 <div className="flex items-center"><button onClick={() => removeEducation(edu.id)} className="text-xs text-sapphire-400 hover:text-teal-600">Remove</button></div>
               </div>
             </div>
@@ -117,8 +117,8 @@ export default function TemplateCVPage() {
                 <input placeholder="Location" defaultValue={emp.location ?? ''} onBlur={e => updateEmployment(emp, 'location', e.target.value)} className="input w-full" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-2">
-                <input placeholder="Start date" defaultValue={emp.start_date ?? ''} onBlur={e => updateEmployment(emp, 'start_date', e.target.value)} className="input w-full" />
-                <input placeholder="End date" defaultValue={emp.end_date ?? ''} onBlur={e => updateEmployment(emp, 'end_date', e.target.value)} className="input w-full" />
+                <input placeholder="Start date" defaultValue={emp.start_label ?? ''} onBlur={e => updateEmployment(emp, 'start_date', e.target.value)} className="input w-full" />
+                <input placeholder="End date" defaultValue={emp.end_label ?? ''} onBlur={e => updateEmployment(emp, 'end_date', e.target.value)} className="input w-full" />
                 <div className="flex items-center"><button onClick={() => removeEmployment(emp.id)} className="text-xs text-sapphire-400 hover:text-teal-600">Remove</button></div>
               </div>
               <textarea placeholder="Description" defaultValue={emp.description ?? ''} onBlur={e => updateEmployment(emp, 'description', e.target.value)} rows={2} className="input w-full resize-none" />

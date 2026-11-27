@@ -352,20 +352,20 @@ export default function ProfilePage() {
                           <label className="block text-sm font-medium text-sapphire-700 mb-2">Start Date</label>
                           <input
                             type="text"
-                            value={edu.start_date || ''}
-                            onChange={(e) => updateEducation(edu.id, 'start_date', e.target.value)}
+                            defaultValue={edu.start_label || ''}
+                            onBlur={(e) => e.target.value !== (edu.start_label || '') && updateEducation(edu.id, 'start_date', e.target.value)}
                             className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                            placeholder="e.g., 2020"
+                            placeholder="e.g., April 2025 or 2025-04-01"
                           />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-sapphire-700 mb-2">End Date</label>
                           <input
                             type="text"
-                            value={edu.end_date || ''}
-                            onChange={(e) => updateEducation(edu.id, 'end_date', e.target.value)}
+                            defaultValue={edu.end_label || ''}
+                            onBlur={(e) => e.target.value !== (edu.end_label || '') && updateEducation(edu.id, 'end_date', e.target.value)}
                             className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                            placeholder="e.g., 2024"
+                            placeholder="e.g., 2024 or Present"
                           />
                         </div>
                       </div>
@@ -439,20 +439,20 @@ export default function ProfilePage() {
                           <label className="block text-sm font-medium text-sapphire-700 mb-2">Start Date</label>
                           <input
                             type="text"
-                            value={emp.start_date || ''}
-                            onChange={(e) => updateEmployment(emp.id, 'start_date', e.target.value)}
+                            defaultValue={emp.start_label || ''}
+                            onBlur={(e) => e.target.value !== (emp.start_label || '') && updateEmployment(emp.id, 'start_date', e.target.value)}
                             className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                            placeholder="e.g., 2020"
+                            placeholder="e.g., April 2025 or 2025-04-01"
                           />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-sapphire-700 mb-2">End Date</label>
                           <input
                             type="text"
-                            value={emp.end_date || ''}
-                            onChange={(e) => updateEmployment(emp.id, 'end_date', e.target.value)}
+                            defaultValue={emp.end_label || ''}
+                            onBlur={(e) => e.target.value !== (emp.end_label || '') && updateEmployment(emp.id, 'end_date', e.target.value)}
                             className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                            placeholder="e.g., Present"
+                            placeholder="e.g., September 2026 or Present"
                           />
                         </div>
                       </div>

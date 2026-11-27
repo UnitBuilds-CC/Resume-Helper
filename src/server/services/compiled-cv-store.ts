@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { StoreError, jobPostingExists } from './job-posting-store.js';
+import { assertClaimsGrounded } from './timeline.js';
 
 export interface CompiledCvRow {
   id: number;
@@ -14,7 +15,7 @@ export interface CompiledCvRow {
  * Both create paths - the REST route the UI would use and compile_cv_from_blocks - assign the version this
  * way, and used to keep separate copies of the MAX(version)+1 query.
  */
-export function createCompiledCv(db: Database.Database, input: { job_posting_id: unknown; content: unknown }): CompiledCvRow {
+export function createCompiledCv(db: Database.Database, input: { job_posting_id: unknown; content: unknown; acknowledge?: unknown }): CompiledCvRow {
   const { job_posting_id, content } = input;
   if (!jobPostingExists(db, job_posting_id)) {
     throw new StoreError('job_posting_id ' + String(job_posting_id) + ' does not exist');
@@ -22,6 +23,7 @@ export function createCompiledCv(db: Database.Database, input: { job_posting_id:
   if (typeof content !== 'string' || !content.trim()) {
     throw new StoreError('content must be a non-empty string');
   }
+  assertClaimsGrounded(db, content, 'compiled CV', input.acknowledge);
 
   const top = db.prepare('SELECT MAX(version) as max_version FROM compiled_cvs WHERE job_posting_id = ?')
     .get(Number(job_posting_id)) as { max_version: number | null };
@@ -38,10 +40,11 @@ export function getCompiledCv(db: Database.Database, id: unknown) {
   return row as CompiledCvRow;
 }
 
-export function updateCompiledCv(db: Database.Database, id: unknown, content: unknown) {
+export function updateCompiledCv(db: Database.Database, id: unknown, content: unknown, acknowledge?: unknown) {
   const existing = getCompiledCv(db, id);
   if (content !== undefined && content !== null) {
     if (typeof content !== 'string' || !content.trim()) throw new StoreError('content must be a non-empty string');
+    assertClaimsGrounded(db, content, 'compiled CV', acknowledge);
     db.prepare("UPDATE compiled_cvs SET content = ?, updated_at = datetime('now') WHERE id = ?").run(content, existing.id);
   }
   return getCompiledCv(db, id);

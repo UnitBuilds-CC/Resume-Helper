@@ -962,9 +962,18 @@ export function registerTools(server: McpServer) {
     {
       cover_letter_id: z.number().describe('Cover letter ID'),
       content: z.string().describe('Updated cover letter content'),
+      acknowledge: z.string().optional().describe('Send "confirmed_change" to store dates the employment, education and project records do not support'),
     },
-    async ({ cover_letter_id, content }) => {
-      const saved = saveCoverLetterAsNewVersion(db, cover_letter_id, content);
+    async ({ cover_letter_id, content, acknowledge }) => {
+      let saved;
+      try {
+        saved = saveCoverLetterAsNewVersion(db, cover_letter_id, content, acknowledge);
+      } catch (err) {
+        if (err instanceof StoreError) {
+          return { content: [{ type: 'text' as const, text: err.message }], isError: true };
+        }
+        throw err;
+      }
       if (!saved) return { content: [{ type: 'text', text: `Cover letter ${cover_letter_id} not found` }], isError: true };
 
       const coverLetter = db.prepare(`

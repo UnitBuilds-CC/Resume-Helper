@@ -47,8 +47,13 @@ export interface Education {
   institution: string | null;
   degree: string | null;
   field: string | null;
+  // Stored canonically as ISO; the precision says how much of it the owner actually asserts.
   start_date: string | null;
   end_date: string | null;
+  start_precision?: 'year' | 'month' | 'day' | null;
+  end_precision?: 'year' | 'month' | 'day' | null;
+  start_label?: string;
+  end_label?: string;
   details: string | null;
   sort_order: number;
 }
@@ -59,6 +64,11 @@ export interface Employment {
   title: string | null;
   start_date: string | null;
   end_date: string | null;
+  start_precision?: 'year' | 'month' | 'day' | null;
+  end_precision?: 'year' | 'month' | 'day' | null;
+  start_label?: string;
+  end_label?: string;
+  commitment?: 'full_time' | 'part_time' | 'contract' | null;
   location: string | null;
   description: string | null;
   sort_order: number;

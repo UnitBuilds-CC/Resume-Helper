@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { generateCoverLetter } from '../services/cover-letter-generator.js';
 import { generatePdf } from '../services/pdf-generator.js';
+import { saveCoverLetterAsNewVersion } from '../services/cover-letter-versions.js';
 import { generateDocx } from '../services/docx-generator.js';
 
 const router = Router();
@@ -176,23 +177,24 @@ router.post('/:job_posting_id', (req, res) => {
 
 // PUT /api/cover-letters/:id - Update cover letter content
 router.put('/:id', (req, res) => {
-  const { content } = req.body;
+  const { content, acknowledge } = req.body;
   if (!content) {
     return res.status(400).json({ error: 'content is required' });
   }
-  
-  db.prepare(
-    "UPDATE cover_letters SET content = ?, updated_at = datetime('now') WHERE id = ?"
-  ).run(content, req.params.id);
-  
+
+  // Same helper the MCP tool uses. This route used to UPDATE the row in place, so saving from the UI
+  // destroyed a version that saving through MCP would have appended - one user action, two behaviours.
+  const saved = saveCoverLetterAsNewVersion(db, Number(req.params.id), content, acknowledge);
+  if (!saved) return res.status(404).json({ error: 'Cover letter not found' });
+
   const coverLetter = db.prepare(`
     SELECT cl.*, jp.title as job_title, jp.company as job_company
     FROM cover_letters cl
     JOIN job_postings jp ON jp.id = cl.job_posting_id
     WHERE cl.id = ?
-  `).get(req.params.id);
-  
-  res.json(coverLetter);
+  `).get(saved.id);
+
+  res.status(201).json(coverLetter);
 });
 
 // DELETE /api/cover-letters/:id - Delete cover letter
