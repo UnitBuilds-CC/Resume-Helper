@@ -67,7 +67,7 @@ export default function CoverLettersPage() {
 
   async function exportPdf() {
     if (!coverLetters[0]) return;
-    window.open(`/api/cover-letters/${coverLetters[0].id}/pdf`, '_blank');
+    window.open(`/api/cover-letters/download/${coverLetters[0].id}`, '_blank');
   }
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>;

@@ -14,6 +14,16 @@ router.get('/', (_req, res) => {
   res.json(getFullTemplate());
 });
 
+// BlocksPage and ProfilePage fetch these two collections directly; only the combined GET / existed, so the
+// client's JSON parse threw on the SPA fallback and both pages never finished loading.
+router.get('/education', (_req, res) => {
+  res.json(db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all());
+});
+
+router.get('/employment', (_req, res) => {
+  res.json(db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all());
+});
+
 router.put('/', (req, res) => {
   const { full_name, email, phone, location, linkedin, website, summary, professional_title } = req.body;
   

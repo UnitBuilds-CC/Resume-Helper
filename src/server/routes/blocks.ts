@@ -80,8 +80,13 @@ function setBlockProjects(blockId: number, projectIds: number[]) {
 
 router.get('/', (req, res) => {
   const { skill, search } = req.query;
+  // The link ids come back as correlated subqueries rather than joins: joining all three link tables to one
+  // row multiplies the result set, and the edit form needs each set intact.
   let query = `
-    SELECT b.*, GROUP_CONCAT(s.name) as skill_names
+    SELECT b.*, GROUP_CONCAT(s.name) as skill_names,
+      (SELECT GROUP_CONCAT(be.employment_id) FROM block_employment be WHERE be.block_id = b.id) AS employment_id_csv,
+      (SELECT GROUP_CONCAT(bsy.system_id) FROM block_systems bsy WHERE bsy.block_id = b.id) AS system_id_csv,
+      (SELECT GROUP_CONCAT(bpr.project_id) FROM block_projects bpr WHERE bpr.block_id = b.id) AS project_id_csv
     FROM blocks b
     LEFT JOIN block_skills bs ON bs.block_id = b.id
     LEFT JOIN skills s ON s.id = bs.skill_id
@@ -101,11 +106,16 @@ router.get('/', (req, res) => {
   query += ' GROUP BY b.id ORDER BY b.updated_at DESC';
 
   const rows = db.prepare(query).all(...params) as any[];
+  const ids = (csv: unknown) => csv ? String(csv).split(',').map(Number) : [];
   const blocks = rows.map(r => ({
     id: r.id,
     title: r.title,
     content: r.content,
     skills: r.skill_names ? r.skill_names.split(',') : [],
+    // Without these the edit form sends empty arrays and PUT deletes every link the block had.
+    employment_ids: ids(r.employment_id_csv),
+    system_ids: ids(r.system_id_csv),
+    project_ids: ids(r.project_id_csv),
     is_generic: r.is_generic === 1,
     target_companies: r.target_companies || '',
     created_at: r.created_at,
