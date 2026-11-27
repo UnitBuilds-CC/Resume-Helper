@@ -321,6 +321,17 @@ Once you're happy:
 - Make sure you've added data through the web UI first
 - Try `list_systems` or `list_blocks` to verify the AI can read your data
 
+**"asserts dates that no stored record supports"**
+- This is the grounding guard, not a bug. The text you (or the AI) tried to save states a month or year that
+  falls outside every employment, education and project period on record — usually because a date was typed
+  from memory instead of read from the timeline.
+- Check the record: `GET /api/timeline`, or the Profile page, which shows each period and its rendered label.
+- Accepted date shapes when you edit one: `2025-04-17`, `2025-04`, `2025`, `April 2025`, or `Present`.
+  Anything vaguer ("End 2024", "sometime in spring") is refused so nobody has to guess what it meant later.
+- If the prose is right and the record is incomplete, fix the record. If you genuinely mean to store a date
+  the records do not cover yet, resend with `acknowledge="confirmed_change"` — the response then names exactly
+  which claim was unanchored, so the exception is visible instead of silent.
+
 **"npx not found"**
 - If your AI client can't find `npx`, use the full path to Node.js:
   ```json

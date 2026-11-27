@@ -22,6 +22,18 @@ A desktop CV tailoring tool that helps you build job-specific resumes from a mas
 10. **Iterate** — Answer gap-analysis questions, add new blocks, re-compile until your score hits 90+
 11. **Export** — Download as PDF or Word after an ATS compatibility check. The check and the download are separate actions: the export route does not block on a failed check, it tells you first
 
+## Dates are grounded
+
+Employment and education periods are stored canonically (`2025-04-01`) together with the precision the owner
+actually asserts — `year`, `month` or `day` — so "2020" stays a year claim instead of being padded into a
+fake January. `GET /api/timeline` returns the record, the rendered labels, the ordering verdicts and any
+overlaps.
+
+A block, compiled CV or cover letter that states a date no employment, education or project period supports
+is **refused**, not stored, until the write is resent with `acknowledge="confirmed_change"`. That rule exists
+because prose drifting away from the employment record was the single most repeated defect in this project's
+history. Overlapping periods are reported as notes, never refused: running a company while employed was true.
+
 ## Desktop App vs Development
 
 ### Desktop App (Recommended)
@@ -208,6 +220,8 @@ src/
 │   │   ├── red-team-store.ts       # Validated evaluation writes and the shared parsed read
 │   │   ├── red-team-runner.ts      # Runs the evaluator over a stored CV and saves it through the store
 │   │   ├── block-store.ts          # Block list with its link ids, and link writes that validate first
+│   │   ├── timeline.ts             # What a date is, what it renders as, and what it means for prose to contradict it
+│   │   ├── timeline-store.ts       # Canonical employment/education writes with precision the owner asserts
 │   │   ├── red-team-evaluator.ts   # 3-phase evaluator, wired to POST /api/red-team/evaluate and the UI
 │   │   ├── job-match-analyzer.ts   # 6-dimension match scoring
 │   │   ├── cover-letter-generator.ts # Template cover letter generation
