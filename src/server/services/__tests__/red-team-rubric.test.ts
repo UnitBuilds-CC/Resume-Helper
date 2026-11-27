@@ -7,12 +7,18 @@ import {
 // summed to 82.04: one term had been left behind after a dimension was re-scored, and nothing compared the
 // two. The first test below is that exact payload.
 
-const validDimensions = RED_TEAM_DIMENSIONS.map((d) => ({
+type Dim = { dimension_name: string; score: number; weight: number; feedback: string };
+
+const SCORES: Record<string, number> = {
+  technical_skills: 82, experience_relevance: 85, achievement_focus: 80, seniority_level: 78,
+  education: 65, location_logistics: 85, communication_quality: 90, culture_fit: 90, cv_structure: 78,
+  red_flags: 70,
+};
+
+const validDimensions: Dim[] = RED_TEAM_DIMENSIONS.map((d) => ({
   dimension_name: d.name,
   weight: d.weight,
-  score: { technical_skills: 82, experience_relevance: 85, achievement_focus: 80, seniority_level: 78,
-    education: 65, location_logistics: 85, communication_quality: 90, culture_fit: 90, cv_structure: 78,
-    red_flags: 70 }[d.name] as number,
+  score: SCORES[d.name],
   feedback: 'ok',
 }));
 
