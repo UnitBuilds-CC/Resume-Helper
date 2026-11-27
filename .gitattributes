@@ -1,0 +1,13 @@
+# The app writes LF (compiled_cvs rows and blocks are LF), and a CRLF row silently breaks the
+# section-extraction regexes. Keep checkouts identical to what is stored.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.docx binary
+*.db binary
+*.db-wal binary
+*.db-shm binary
