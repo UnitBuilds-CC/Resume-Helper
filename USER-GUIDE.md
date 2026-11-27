@@ -138,10 +138,11 @@ The AI will:
 3. Write a tailored CV in Markdown, cherry-picking relevant blocks and skills
 4. Call `POST /api/compiled-cvs` with `{job_posting_id, content}` to save it
 
-There is no MCP tool for saving a compiled CV — `prepare_compilation` only reads context, so the
-REST route is the create path. It assigns `version = MAX(version) + 1` per job posting, so a revised
-CV becomes a new row rather than replacing the old one, and `job_postings.compiled_cv_id` has to be
-pointed at the new row once you are happy with it.
+Two create paths exist. `compile_cv_from_blocks` assembles and stores a CV in one call, and
+`POST /api/compiled-cvs` stores Markdown you (or the AI) wrote yourself — `prepare_compilation` only reads
+context. Both assign `version = MAX(version) + 1` per job posting, so a revised CV becomes a new row rather
+than replacing the old one, and `job_postings.compiled_cv_id` has to be pointed at the new row once you are
+happy with it. There is no tool named `save_compiled_cv`.
 
 You'll see the compiled CV appear in the web UI under "Compiled CVs."
 
@@ -158,6 +159,11 @@ The AI will:
 5. Identify gaps between the job requirements and your scratch pads
 6. Generate questions for each gap
 7. Call `save_red_team_result(...)` with scores, analysis, and questions
+
+`save_red_team_result` refuses a result whose `overall_score` is not the rounded weighted sum of the ten
+dimensions it was given, and refuses weights that do not add up to 1.00 or dimension names outside the
+rubric above. If an evaluation is rejected, the response says which term disagreed — send the corrected
+payload rather than editing the stored row.
 
 You'll see the results in the web UI under "Red Team" and questions under "Questions."
 

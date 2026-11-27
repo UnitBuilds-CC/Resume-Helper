@@ -20,7 +20,7 @@ A desktop CV tailoring tool that helps you build job-specific resumes from a mas
 8. **Generate a cover letter** — AI-generated cover letters tailored to each job, pulling from your profile and blocks
 9. **Track applications** — Move postings through your pipeline: Found → Preparing → Ready → Applied → Interview → Offer
 10. **Iterate** — Answer gap-analysis questions, add new blocks, re-compile until your score hits 90+
-11. **Export PDF** — ATS-validated download with compatibility scoring and PDF metadata embedding
+11. **Export PDF** — Download with compatibility scoring available alongside it. The ATS check and the download are separate actions: the export route does not itself block on a failed check
 
 ## Desktop App vs Development
 
@@ -151,9 +151,9 @@ Config file locations:
 
 2. AI compiles a tailored CV in Markdown
 
-3. AI stores the CV: POST /api/compiled-cvs {job_posting_id:1, content:"# My CV..."}
-   → saved as version 1 (no save_compiled_cv MCP tool exists; this route is the create path
-     and assigns version = MAX(version)+1 for that job posting)
+3. AI stores the CV: either the `compile_cv_from_blocks` MCP tool, or POST /api/compiled-cvs {job_posting_id:1, content:"# My CV..."}
+   → both assign version = MAX(version)+1 per job posting, so a revision becomes a new row rather than
+     replacing the one a recruiter already saw. There is no tool called `save_compiled_cv`.
 
 4. AI calls prepare_red_team(compiled_cv_id=1)
    → receives: compiled CV + all context for evaluation
@@ -189,14 +189,17 @@ src/
 │   │   ├── job-search.ts           # External job search
 │   │   ├── cover-letters.ts        # Cover letter CRUD
 │   │   ├── git.ts                  # Git repo integration
-│   │   ├── import.ts               # File import (PDF/DOCX/TXT)
+│   │   ├── import.ts               # File import (PDF/DOCX/TXT/MD)
 │   │   └── projects.ts             # Project management
 │   ├── services/
 │   │   ├── file-reader.ts          # PDF/DOCX/TXT/MD text extraction
-│   │   ├── pdf-generator.ts        # Markdown → HTML → Puppeteer PDF
+│   │   ├── pdf-generator.ts        # Markdown laid onto A4 pages with pdf-lib (no HTML, no browser)
 │   │   ├── ats-validator.ts        # ATS compatibility scoring + PDF metadata
 │   │   ├── smart-compiler.ts       # Block selection and CV compilation
-│   │   ├── red-team-evaluator.ts   # 3-phase hiring funnel evaluation
+│   │   ├── block-scope.ts          # Keeps one employer's blocks out of another's documents
+│   │   ├── cover-letter-versions.ts# Appends a cover letter version instead of overwriting
+│   │   ├── red-team-rubric.ts      # The 10-dimension weights, and the score validation both save paths use
+│   │   ├── red-team-evaluator.ts   # 3-phase evaluator - NOT WIRED IN: nothing imports it, the AI client scores instead
 │   │   ├── job-match-analyzer.ts   # 6-dimension match scoring
 │   │   ├── cover-letter-generator.ts # AI cover letter generation
 │   │   ├── git-sync.ts             # Git repo sync and commit management
@@ -243,11 +246,12 @@ templates/
 | Backend | Express 5 + TypeScript |
 | Database | SQLite (better-sqlite3) |
 | AI Integration | MCP (@modelcontextprotocol/sdk) |
-| PDF | Puppeteer (HTML → PDF), pdf-lib (metadata embedding) |
+| PDF | pdf-lib (page layout, text drawing and metadata in one pass) |
 | File Import | pdf-parse (PDF), mammoth (DOCX) |
 | Git | simple-git |
 | Bundler | esbuild (server), Vite (client) |
 
 ## License
 
-MIT
+No licence file has been chosen yet. `package.json` currently declares ISC while this section previously
+claimed MIT; pick one and add a LICENSE file before the repository is shared further.
