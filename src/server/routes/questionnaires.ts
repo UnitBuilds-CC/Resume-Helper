@@ -72,7 +72,7 @@ router.post('/answers', (req, res) => {
   // Check if answer already exists
   const existing = db.prepare(
     'SELECT id FROM application_answers WHERE job_posting_id = ? AND question_id = ?'
-  ).get(job_posting_id, question_id);
+  ).get(job_posting_id, question_id) as { id: number } | undefined;
   
   if (existing) {
     // Update existing answer

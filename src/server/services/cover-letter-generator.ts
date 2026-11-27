@@ -86,10 +86,11 @@ function extractKeywords(content: string): string[] {
 
 // Calculate relevance score between item and job keywords
 function calculateRelevance(
-  item: { title: string; description?: string | null; content?: string; skills?: string[] },
+  item: { title?: string; name?: string; description?: string | null; content?: string; skills?: string[] },
   keywords: string[]
 ): number {
-  const title = item.title || '';
+  // Systems are labelled `name`, blocks are labelled `title`; scoring only on `title` rated every system at 0.
+  const title = item.title || item.name || '';
   const text = `${title} ${item.description || ''} ${item.content || ''} ${(item.skills || []).join(' ')}`.toLowerCase();
   let score = 0;
   

@@ -50,7 +50,7 @@ export function registerTools(server: McpServer) {
 
   // 3. get_template_cv
   server.tool('get_template_cv', 'Get the template CV with education and employment history', {}, async () => {
-    const cv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get();
+    const cv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
     const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all();
     const employment = db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all();
     return { content: [{ type: 'text', text: JSON.stringify({ ...cv, education, employment }, null, 2) }] };
@@ -96,10 +96,10 @@ export function registerTools(server: McpServer) {
       if (!job) return { content: [{ type: 'text', text: 'Job posting not found' }], isError: true };
 
       const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
-      const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all();
-      const employment = db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all();
-      const systems = db.prepare('SELECT * FROM systems ORDER BY updated_at DESC').all();
-      const projects = db.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all();
+      const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all() as any[];
+      const employment = db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all() as any[];
+      const systems = db.prepare('SELECT * FROM systems ORDER BY updated_at DESC').all() as any[];
+      const projects = db.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all() as any[];
 
       const blockRows = db.prepare(`
         SELECT b.*, GROUP_CONCAT(DISTINCT s.name) as skill_names,
@@ -258,10 +258,10 @@ export function registerTools(server: McpServer) {
       if (!compiledCv) return { content: [{ type: 'text', text: 'Compiled CV not found' }], isError: true };
 
       const job = db.prepare('SELECT * FROM job_postings WHERE id = ?').get(compiledCv.job_posting_id);
-      const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get();
-      const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all();
-      const employment = db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all();
-      const systems = db.prepare('SELECT * FROM systems ORDER BY updated_at DESC').all();
+      const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
+      const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all() as any[];
+      const employment = db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all() as any[];
+      const systems = db.prepare('SELECT * FROM systems ORDER BY updated_at DESC').all() as any[];
 
       const blockRows = db.prepare(`
         SELECT b.*, GROUP_CONCAT(s.name) as skill_names
@@ -605,9 +605,9 @@ export function registerTools(server: McpServer) {
         }
         // Generic fallback - use most relevant blocks based on keyword matching
         else {
-          const keywords = q.split(' ').filter(w => w.length > 4);
-          const relevantBlocks = blocks.filter(b => 
-            keywords.some(word => 
+          const keywords = q.split(' ').filter((w: string) => w.length > 4);
+          const relevantBlocks = blocks.filter(b =>
+            keywords.some((word: string) =>
               b.title.toLowerCase().includes(word) ||
               b.content.toLowerCase().includes(word) ||
               b.skill_names?.toLowerCase().includes(word)
@@ -628,7 +628,7 @@ export function registerTools(server: McpServer) {
         // Save the answer
         const existing = db.prepare(
           'SELECT id FROM application_answers WHERE job_posting_id = ? AND question_id = ?'
-        ).get(job_posting_id, question.id);
+        ).get(job_posting_id, question.id) as { id: number } | undefined;
         
         if (existing) {
           db.prepare(
@@ -770,10 +770,10 @@ export function registerTools(server: McpServer) {
         .run('preparing', job_posting_id);
       
       // Get compilation data
-      const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get();
-      const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all();
-      const employment = db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all();
-      const systems = db.prepare('SELECT * FROM systems ORDER BY updated_at DESC').all();
+      const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
+      const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all() as any[];
+      const employment = db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all() as any[];
+      const systems = db.prepare('SELECT * FROM systems ORDER BY updated_at DESC').all() as any[];
       const blockRows = db.prepare(`
         SELECT b.*, GROUP_CONCAT(s.name) as skill_names
         FROM blocks b LEFT JOIN block_skills bs ON bs.block_id = b.id

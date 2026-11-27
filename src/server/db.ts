@@ -9,7 +9,7 @@ const __dirname = typeof import.meta.url === 'string'
 const dataDir = process.env.DATA_DIR || join(__dirname, '../../data');
 mkdirSync(dataDir, { recursive: true });
 
-const db = new Database(join(dataDir, 'resume-helper.db'));
+const db: Database.Database = new Database(join(dataDir, 'resume-helper.db'));
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');

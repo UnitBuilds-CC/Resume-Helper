@@ -393,7 +393,7 @@ function scoreRoleAlignment(
   } else if (jobSeniority === candidateSeniority) {
     strengths.push(`Seniority match: both ${jobSeniority}-level`);
   } else {
-    const levelOrder = { junior: 1, mid: 2, senior: 3 };
+    const levelOrder: Record<string, number> = { junior: 1, mid: 2, senior: 3 };
     const diff = levelOrder[jobSeniority] - levelOrder[candidateSeniority];
     if (diff > 0) {
       gaps.push(`Job requires ${jobSeniority}-level but candidate appears ${candidateSeniority}-level`);

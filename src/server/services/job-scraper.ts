@@ -23,7 +23,7 @@ export async function scrapeRemoteOK(search?: string): Promise<JobPosting[]> {
     const data = await response.json();
     
     // Skip first item (it's not a job)
-    let jobs = data.slice(1).map((job: any) => ({
+    let jobs: JobPosting[] = data.slice(1).map((job: any) => ({
       title: job.position || 'Unknown Position',
       company: job.company || 'Unknown Company',
       location: job.location || 'Remote',
@@ -36,11 +36,11 @@ export async function scrapeRemoteOK(search?: string): Promise<JobPosting[]> {
     
     if (search) {
       const searchLower = search.toLowerCase();
-      jobs = jobs.filter(job => 
+      jobs = jobs.filter((job) =>
         job.title.toLowerCase().includes(searchLower) ||
         job.company.toLowerCase().includes(searchLower) ||
         job.description.toLowerCase().includes(searchLower) ||
-        job.tags?.some(tag => tag.toLowerCase().includes(searchLower))
+        job.tags?.some((tag) => tag.toLowerCase().includes(searchLower))
       );
     }
     
@@ -239,7 +239,7 @@ export async function scrapeHNWhoIsHiring(search?: string): Promise<JobPosting[]
       for (const comment of data.children) {
         if (!comment.text) continue;
         
-        const text = comment.text;
+        const text: string = comment.text;
         
         // Check if it looks like a job posting (has pipe delimiters in first line)
         const firstLine = text.split('\n')[0];
