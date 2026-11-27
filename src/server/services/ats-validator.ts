@@ -179,7 +179,8 @@ export function checkAtsCompatibility(content: string): ValidationResult[] {
 
 function extractKeywords(jobPosting: any): string[] {
   if (!jobPosting) return [];
-  const text = `${jobPosting.title || ''} ${jobPosting.description || ''} ${jobPosting.requirements || ''} ${jobPosting.skills || ''}`.toLowerCase();
+  // Same reason as the export route: `content` is the only body column job_postings has.
+  const text = `${jobPosting.title || ''} ${jobPosting.content || ''}`.toLowerCase();
   const techKeywords = [
     'rust', 'typescript', 'python', 'go', 'java', 'c++', 'c#', '.net', 'node', 'react',
     'docker', 'kubernetes', 'aws', 'gcp', 'azure', 'postgres', 'sql', 'mongodb', 'redis',

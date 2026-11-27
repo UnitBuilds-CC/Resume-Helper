@@ -58,7 +58,9 @@ router.get('/:id/pdf', async (req, res) => {
 
   const keywords: string[] = [];
   if (jobPosting) {
-    const text = `${jobPosting.title || ''} ${jobPosting.description || ''} ${jobPosting.requirements || ''}`.toLowerCase();
+    // A job_postings row stores the whole posting in `content`; description/requirements/skills were columns
+    // that never existed, so this matched against the title alone.
+    const text = `${jobPosting.title || ''} ${jobPosting.content || ''}`.toLowerCase();
     const techKeywords = [
       'rust', 'typescript', 'python', 'go', 'docker', 'kubernetes', 'aws', 'gcp',
       'postgres', 'react', 'node', 'api', 'backend', 'remote', 'microservices',
