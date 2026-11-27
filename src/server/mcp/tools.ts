@@ -551,10 +551,8 @@ export function registerTools(server: McpServer) {
         // Open source/projects - use blocks
         else if (q.includes('open source') || q.includes('projects') || q.includes('portfolio')) {
           answer = `**Open Source Projects:**\n\n`;
-          const projectBlocks = blocks.filter(b => 
-            b.title.toLowerCase().includes('velocity') ||
-            b.title.toLowerCase().includes('valid') ||
-            b.title.toLowerCase().includes('resume')
+          const projectBlocks = blocks.filter(b =>
+            /github\.com|gitlab\.com|pull request|\bPR\b|open source/i.test(`${b.title} ${b.content}`)
           ).slice(0, 5);
           for (const block of projectBlocks) {
             answer += `**${block.title}**\n`;
