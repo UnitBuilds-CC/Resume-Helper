@@ -15,12 +15,12 @@ A desktop CV tailoring tool that helps you build job-specific resumes from a mas
 3. **Set up your template CV** — Education and employment history (the skeleton)
 4. **Find and add job postings** — Search for jobs or paste/upload descriptions you want to apply to
 5. **Check your match** — The Job Match Scorecard analyzes how well you fit across 6 dimensions (tech skills, experience, role alignment, keywords, industry, location) and suggests gaps you may be able to fill
-6. **Compile via AI** — An AI client (connected via MCP) bundles your data with the job posting and compiles a tailored CV using your own words
-7. **Red team it** — The AI evaluates your compiled CV against the 3-phase hiring funnel and scores it across 10 dimensions
+6. **Compile a CV** — Either "Assemble from blocks" in the app, which builds a CV from your stored content and stores it as a new version, or an AI client through MCP for a tailored rewrite in your own words
+7. **Red team it** — "Run deterministic evaluation" in the app scores the compiled CV across the 10 weighted dimensions; an AI client can write the narrative version, and both must satisfy the same arithmetic before they are stored
 8. **Generate a cover letter** — AI-generated cover letters tailored to each job, pulling from your profile and blocks
 9. **Track applications** — Move postings through your pipeline: Found → Preparing → Ready → Applied → Interview → Offer
 10. **Iterate** — Answer gap-analysis questions, add new blocks, re-compile until your score hits 90+
-11. **Export PDF** — Download with compatibility scoring available alongside it. The ATS check and the download are separate actions: the export route does not itself block on a failed check
+11. **Export** — Download as PDF or Word after an ATS compatibility check. The check and the download are separate actions: the export route does not block on a failed check, it tells you first
 
 ## Desktop App vs Development
 
@@ -199,9 +199,18 @@ src/
 │   │   ├── block-scope.ts          # Keeps one employer's blocks out of another's documents
 │   │   ├── cover-letter-versions.ts# Appends a cover letter version instead of overwriting
 │   │   ├── red-team-rubric.ts      # The 10-dimension weights, and the score validation both save paths use
-│   │   ├── red-team-evaluator.ts   # 3-phase evaluator - NOT WIRED IN: nothing imports it, the AI client scores instead
+│   │   ├── markdown-blocks.ts      # The one markdown reader, shared by the PDF and Word exporters
+│   │   ├── docx-generator.ts       # Word export of a CV or cover letter, editable by a recruiter
+│   │   ├── cv-assembly.ts          # Builds a CV from chosen blocks and systems (app and MCP share it)
+│   │   ├── cv-export.ts            # Assembles the header, summary precedence and keywords for both exporters
+│   │   ├── job-posting-store.ts    # Status vocabulary, link clearing and foreign-key checks for postings
+│   │   ├── compiled-cv-store.ts    # Versioned CV create/read/delete, one MAX(version)+1 implementation
+│   │   ├── red-team-store.ts       # Validated evaluation writes and the shared parsed read
+│   │   ├── red-team-runner.ts      # Runs the evaluator over a stored CV and saves it through the store
+│   │   ├── block-store.ts          # Block list with its link ids, and link writes that validate first
+│   │   ├── red-team-evaluator.ts   # 3-phase evaluator, wired to POST /api/red-team/evaluate and the UI
 │   │   ├── job-match-analyzer.ts   # 6-dimension match scoring
-│   │   ├── cover-letter-generator.ts # AI cover letter generation
+│   │   ├── cover-letter-generator.ts # Template cover letter generation
 │   │   ├── git-sync.ts             # Git repo sync and commit management
 │   │   └── job-scraper.ts          # External job search scraping
 │   └── mcp/
@@ -247,6 +256,7 @@ templates/
 | Database | SQLite (better-sqlite3) |
 | AI Integration | MCP (@modelcontextprotocol/sdk) |
 | PDF | pdf-lib (page layout, text drawing and metadata in one pass) |
+| Word | docx (CV and cover-letter export, read back by the app's own importer in tests) |
 | File Import | pdf-parse (PDF), mammoth (DOCX) |
 | Git | simple-git |
 | Bundler | esbuild (server), Vite (client) |

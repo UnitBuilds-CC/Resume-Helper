@@ -1,12 +1,12 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicegui/nicegui/main/tauri-schema.json",
+  "$schema": "https://schema.tauri.app/config/2",
   "productName": "Resume Helper",
   "version": "1.1.0",
   "identifier": "com.unitbuilds.resume-helper",
   "build": {
     "beforeDevCommand": "npm run dev:client",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npx vite build && npx esbuild src/server/index.ts --bundle --platform=node --format=cjs --outfile=src-tauri/resources/server/index.cjs --external:better-sqlite3 --external:pdf-parse --external:puppeteer --external:mammoth",
+    "beforeBuildCommand": "npx vite build && npx esbuild src/server/index.ts --bundle --platform=node --format=cjs --outfile=src-tauri/resources/server/index.cjs --external:better-sqlite3 --external:pdf-parse --external:mammoth",
     "frontendDist": "../dist/client"
   },
   "app": {

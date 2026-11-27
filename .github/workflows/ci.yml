@@ -26,8 +26,11 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Typecheck client and server
+        run: npm run typecheck
+
       # npm run build is `vite build && tsc -p tsconfig.server.json`. It exited 1 on main until the
-      # rootDir/outDir fix, which is precisely why no CI existed: the gate would have been red forever.
+      # rootDir/outDir fix, which is precisely why no gate existed: it would have been red forever.
       - name: Build (client bundle, server typecheck, server emit)
         run: npm run build
 

@@ -146,6 +146,10 @@ happy with it. There is no tool named `save_compiled_cv`.
 
 You'll see the compiled CV appear in the web UI under "Compiled CVs."
 
+The same page has an **Assemble from blocks** button, which does the mechanical version of this step without an
+AI client: you pick a posting, tick the achievement blocks and systems, and it stores the result as the next
+version. An AI rewrite is still the way to get prose tailored to one employer rather than concatenation.
+
 ### 4d. Red Team the CV
 
 Tell your AI:
@@ -166,6 +170,11 @@ rubric above. If an evaluation is rejected, the response says which term disagre
 payload rather than editing the stored row.
 
 You'll see the results in the web UI under "Red Team" and questions under "Questions."
+
+Without an AI client, the Red Team page has a **Run deterministic evaluation** control: pick a compiled CV and
+it scores it against the same 10-dimension rubric, writes the arithmetic into the analysis, and stores it
+through the same validated path. `save_red_team_result` refuses any result whose `overall_score` is not the
+rounded weighted sum of its own dimensions, so neither path can record a number that contradicts itself.
 
 ### 4e. Generate a Cover Letter
 
@@ -219,9 +228,11 @@ Check your dashboard in the web UI for an overview of all applications.
 
 Once you're happy:
 - **Copy:** Click "Copy" on the compiled CV in the web UI to copy the Markdown to your clipboard
-- **PDF:** Click "Download PDF" to get a polished, ATS-validated PDF with compatibility scoring and metadata embedding
+- **ATS check & download:** Runs the compatibility check, then offers **Download PDF** or **Download Word** (and both remain available if the check flags something)
+- **PDF:** `GET /api/compiled-cvs/:id/pdf` produces an ATS-validated PDF with compatibility scoring and metadata embedding
   - The header line under your name uses the linked job posting's title, falling back to the Profile pad's professional title when no posting is linked.
   - The header summary paragraph is taken from the compiled CV's own `## Executive Summary` section when it has one, so a tailored CV exports with its tailored summary; otherwise it falls back to the Profile pad summary. The duplicated body section is dropped, never rendered twice.
+- **Word:** `GET /api/compiled-cvs/:id/docx` renders the same CV as an editable `.docx`, using the same header rules as the PDF; cover letters export the same way from their page
 
 ---
 
