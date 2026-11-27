@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { validateRedTeamPayload } from '../services/red-team-rubric.js';
 
 const router = Router();
 
@@ -33,6 +34,14 @@ router.get('/:compiled_cv_id', (req, res) => {
 router.post('/', (req, res) => {
   const { compiled_cv_id, phase1_qualified, phase2_score, phase3_summary, overall_score, full_analysis, dimensions, red_flags, recommendation, job_fit_summary, questions } = req.body;
   if (!compiled_cv_id) return res.status(400).json({ error: 'compiled_cv_id is required' });
+  if (!db.prepare('SELECT id FROM compiled_cvs WHERE id = ?').get(compiled_cv_id)) {
+    return res.status(404).json({ error: 'compiled CV ' + compiled_cv_id + ' does not exist' });
+  }
+
+  // The same guard the MCP tool applies: an evaluation whose stored total is not the total of its own
+  // dimensions is worse than no evaluation, because the UI presents it as the product's headline number.
+  const problems = validateRedTeamPayload({ phase1_qualified, phase2_score, phase3_summary, overall_score, recommendation, dimensions, red_flags });
+  if (problems.length) return res.status(400).json({ error: 'red team result rejected', problems });
 
   const result = db.prepare(
     `INSERT INTO red_team_results (compiled_cv_id, phase1_qualified, phase2_score, phase3_summary, overall_score, full_analysis, recommendation, red_flags, job_fit_summary)

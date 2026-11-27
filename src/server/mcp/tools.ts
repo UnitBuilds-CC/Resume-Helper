@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import db from '../db.js';
 import { saveCoverLetterAsNewVersion } from '../services/cover-letter-versions.js';
+import { RED_TEAM_DIMENSIONS, RECOMMENDATION_THRESHOLDS, validateRedTeamPayload } from '../services/red-team-rubric.js';
 
 export function registerTools(server: McpServer) {
   // 1. list_systems
@@ -276,26 +277,12 @@ export function registerTools(server: McpServer) {
       }));
 
       const evaluationGuide = {
-        dimensions: [
-          { name: 'technical_skills', weight: 0.25, criteria: 'Required skills coverage, depth indicators, technology stack alignment' },
-          { name: 'experience_relevance', weight: 0.20, criteria: 'Years of experience, domain relevance, industry alignment, scale of work' },
-          { name: 'achievement_focus', weight: 0.15, criteria: 'Quantified achievements, action-oriented language, impact vs responsibilities' },
-          { name: 'seniority_level', weight: 0.10, criteria: 'Years vs job level, leadership indicators, career progression' },
-          { name: 'education', weight: 0.05, criteria: 'Required degree, field relevance, certifications' },
-          { name: 'location_logistics', weight: 0.05, criteria: 'Remote alignment, time zone, work authorization' },
-          { name: 'communication_quality', weight: 0.08, criteria: 'Writing clarity, grammar, formatting, conciseness' },
-          { name: 'culture_fit', weight: 0.07, criteria: 'Values alignment, work style, mission fit' },
-          { name: 'cv_structure', weight: 0.03, criteria: 'Required sections, formatting, length' },
-          { name: 'red_flags', weight: 0.02, criteria: 'Employment gaps, job hopping, inconsistencies (penalty dimension)' }
-        ],
-        recommendation_thresholds: {
-          strong_yes: 85,
-          yes: 70,
-          maybe: 55,
-          no: 40,
-          strong_no: 0
-        },
-        instructions: 'Evaluate each dimension 0-100, provide strengths/gaps/evidence for each. Detect red flags. Calculate weighted score. Generate recommendation based on thresholds.'
+        dimensions: RED_TEAM_DIMENSIONS.map(({ name, weight, criteria }) => ({ name, weight, criteria })),
+        recommendation_thresholds: RECOMMENDATION_THRESHOLDS,
+        instructions: 'Evaluate each dimension 0-100, provide strengths/gaps/evidence for each. Detect red flags. '
+          + 'overall_score must equal the rounded weighted sum of the dimensions; the server rejects a result whose '
+          + 'score does not match its own dimensions. Generate a recommendation from the thresholds, or deviate from '
+          + 'them and state the reason in full_analysis.'
       };
 
       const bundle = {
@@ -348,6 +335,15 @@ export function registerTools(server: McpServer) {
     async ({ compiled_cv_id, phase1_qualified, phase2_score, phase3_summary, overall_score, full_analysis, dimensions, red_flags, recommendation, job_fit_summary, questions }) => {
       const cv = db.prepare('SELECT id FROM compiled_cvs WHERE id = ?').get(compiled_cv_id);
       if (!cv) return { content: [{ type: 'text', text: 'Compiled CV not found' }], isError: true };
+
+      // zod checks shape; this checks that the stored score is the score the dimensions actually describe.
+      const problems = validateRedTeamPayload({ phase1_qualified, phase2_score, phase3_summary, overall_score, recommendation, dimensions, red_flags });
+      if (problems.length) {
+        return {
+          content: [{ type: 'text', text: 'Red team result rejected:\n- ' + problems.join('\n-') }],
+          isError: true,
+        };
+      }
 
       const result = db.prepare(
         `INSERT INTO red_team_results (compiled_cv_id, phase1_qualified, phase2_score, phase3_summary, overall_score, full_analysis, recommendation, red_flags, job_fit_summary)

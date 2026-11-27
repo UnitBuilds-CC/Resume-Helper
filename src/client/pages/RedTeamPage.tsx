@@ -180,7 +180,7 @@ export default function RedTeamPage() {
                           <div key={i} className="p-3 bg-red-50/50 rounded-lg border border-red-300/30">
                             <div className="flex items-start gap-2">
                               <span className={`px-2 py-0.5 rounded text-xs font-bold ${severityColor(flag.severity)}`}>
-                                {flag.severity.toUpperCase()}
+                                {(flag.severity || 'unrated').toUpperCase()}
                               </span>
                               <div className="flex-1">
                                 <p className="text-sm text-sapphire-800 font-medium">{flag.description}</p>
