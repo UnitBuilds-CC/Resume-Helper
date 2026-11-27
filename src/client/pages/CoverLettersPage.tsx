@@ -1,4 +1,4 @@
-import { api } from '../hooks/api';
+import { api, API_BASE } from '../hooks/api';
 import { useState, useEffect } from 'react';
 import { useToast } from '../components/Toast';
 import type { JobPosting, CoverLetter } from '../../shared/types';
@@ -65,9 +65,11 @@ export default function CoverLettersPage() {
     }
   }
 
-  async function exportPdf() {
+  // Reuse the same origin rule as every fetch: the desktop app is not served from :3000, so a relative
+  // /api URL would resolve against the tauri origin and open nothing.
+  function exportDocument(format: 'pdf' | 'docx') {
     if (!coverLetters[0]) return;
-    window.open(`/api/cover-letters/download/${coverLetters[0].id}`, '_blank');
+    window.open(`${API_BASE}/api/cover-letters/download/${coverLetters[0].id}${format === 'docx' ? '/docx' : ''}`, '_blank');
   }
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>;
@@ -134,10 +136,16 @@ export default function CoverLettersPage() {
                         {editing ? 'Cancel' : 'Edit'}
                       </button>
                       <button
-                        onClick={exportPdf}
+                        onClick={() => exportDocument('pdf')}
                         className="btn-secondary text-sm"
                       >
                         Export PDF
+                      </button>
+                      <button
+                        onClick={() => exportDocument('docx')}
+                        className="btn-secondary text-sm"
+                      >
+                        Export Word
                       </button>
                     </>
                   )}

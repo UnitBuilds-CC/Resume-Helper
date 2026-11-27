@@ -70,9 +70,17 @@ export default function GitIntegrationPage() {
       body: JSON.stringify({ type, ids }),
     });
     if (res.ok) {
+      // The route answers { approved, ids }; reading approved_systems printed "Approved undefined system(s)".
       const result = await res.json();
-      toast(`Approved ${type === 'system' ? result.approved_systems : result.approved_blocks} ${type}(s)`);
-      if (selectedRepo) loadChanges(selectedRepo);
+      toast(`Approved ${result.approved} ${type}(s)`);
+      if (selectedRepo) {
+        loadChanges(selectedRepo);
+        // The repo list carries the pending counts; without this the badge stayed stale after approving.
+        loadRepos();
+      }
+    } else {
+      const err = await res.json().catch(() => null);
+      toast(err?.error || 'Approval failed', 'error');
     }
   }
 
@@ -83,8 +91,17 @@ export default function GitIntegrationPage() {
       body: JSON.stringify({ type, ids }),
     });
     if (res.ok) {
-      toast(`Rejected ${items.length} ${type}(s)`);
-      if (selectedRepo) loadChanges(selectedRepo);
+      // This referenced an `items` variable that does not exist in this scope. The reject had already been
+      // committed by the time the ReferenceError fired, so the rows stayed on screen and the user clicked again.
+      const result = await res.json();
+      toast(`Rejected ${result.rejected} ${type}(s)`);
+      if (selectedRepo) {
+        loadChanges(selectedRepo);
+        loadRepos();
+      }
+    } else {
+      const err = await res.json().catch(() => null);
+      toast(err?.error || 'Rejection failed', 'error');
     }
   }
 

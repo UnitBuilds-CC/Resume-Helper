@@ -49,6 +49,30 @@
   --color-lavender-600: #5c4891;
   --color-lavender-700: #483873;
   --color-lavender-800: #3a2d5e;
+
+  /* earth-* and terra-* were referenced by 11 call sites - including the error toast and the destructive
+     Delete button - but never declared, so Tailwind emitted no rule and those rendered as white on white. */
+  --color-earth-50: #faf6f1;
+  --color-earth-100: #f2e9df;
+  --color-earth-200: #e4d3c1;
+  --color-earth-300: #d1b79c;
+  --color-earth-400: #b99776;
+  --color-earth-500: #9c7a5a;
+  --color-earth-600: #7d5f45;
+  --color-earth-700: #624a36;
+  --color-earth-800: #4a3829;
+  --color-earth-900: #35271d;
+
+  --color-terra-50: #fdf3f1;
+  --color-terra-100: #fbe4e0;
+  --color-terra-200: #f7c8c0;
+  --color-terra-300: #ef9f92;
+  --color-terra-400: #e2705c;
+  --color-terra-500: #cf4f39;
+  --color-terra-600: #ab3b28;
+  --color-terra-700: #8a2f21;
+  --color-terra-800: #6d271d;
+  --color-terra-900: #521e17;
 }
 
 @keyframes slideIn {

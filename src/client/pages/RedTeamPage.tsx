@@ -1,28 +1,68 @@
 import { api } from '../hooks/api';
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useToast } from '../components/Toast';
 import type { RedTeamResult, RedTeamDimension, RedFlag, Recommendation } from '../../shared/types';
 
 export default function RedTeamPage() {
-  const [results, setResults] = useState<(RedTeamResult & { job_title?: string; job_company?: string })[]>([]);
+  const { toast } = useToast();
+  const [results, setResults] = useState<(RedTeamResult & { job_title?: string; job_company?: string; job_posting_id?: number })[]>([]);
+  const [cvs, setCvs] = useState<{ id: number; job_title?: string; job_company?: string }[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [targetCv, setTargetCv] = useState<string>('');
+  const [running, setRunning] = useState(false);
 
   async function load() {
-    const cvsRes = await api('/api/compiled-cvs');
-    const cvs = await cvsRes.json();
-    const allResults: any[] = [];
-    for (const cv of cvs) {
-      const res = await api(`/api/red-team/${cv.id}`);
-      const data = await res.json();
-      for (const r of data) allResults.push({ ...r, job_title: cv.job_title, job_company: cv.job_company });
+    try {
+      const cvs = await api('/api/compiled-cvs').then((r) => r.json());
+      setCvs(cvs);
+      // Parallel rather than one awaited round trip per CV, and the loading flag clears either way.
+      const batches = await Promise.all(cvs.map(async (cv: any) => {
+        const data = await api(`/api/red-team/${cv.id}`).then((r) => r.json());
+        return (data as any[]).map((r) => ({ ...r, job_title: cv.job_title, job_company: cv.job_company, job_posting_id: cv.job_posting_id }));
+      }));
+      setResults(batches.flat().sort((a, b) => b.created_at.localeCompare(a.created_at)));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'the API did not answer');
+    } finally {
+      setLoading(false);
     }
-    setResults(allResults.sort((a, b) => b.created_at.localeCompare(a.created_at)));
-    setLoading(false);
+  }
+
+  async function runEvaluation() {
+    if (!targetCv) return;
+    setRunning(true);
+    try {
+      const res = await api('/api/red-team/evaluate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ compiled_cv_id: Number(targetCv) }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.problems?.join('; ') || body?.error || 'evaluation rejected');
+      toast(`Evaluation #${body.id} scored ${body.overall_score} - ${body.recommendation}`, 'success');
+      await load();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'evaluation failed', 'error');
+    } finally {
+      setRunning(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>;
+
+  if (error) return (
+    <div className="card p-8 text-center">
+      <p className="text-terra-600 font-medium">The red team list could not be loaded</p>
+      <p className="text-sapphire-400 text-sm mt-2">{error}</p>
+      <button onClick={load} className="mt-4 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">Try again</button>
+    </div>
+  );
 
   function scoreColor(score: number) {
     if (score >= 90) return 'text-mint-600 bg-mint-50 border-mint-300/20';
@@ -70,14 +110,38 @@ export default function RedTeamPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="page-title">Red Team</h2>
-        <p className="text-sapphire-400 text-sm mt-1">Multi-dimensional evaluation across 10 criteria. Click to expand details.</p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="page-title">Red Team</h2>
+          <p className="text-sapphire-400 text-sm mt-1">Multi-dimensional evaluation across 10 criteria. Click to expand details.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={targetCv}
+            onChange={(e) => setTargetCv(e.target.value)}
+            className="px-3 py-2 border border-sapphire-200 rounded-lg bg-white text-sm text-sapphire-700"
+          >
+            <option value="">Choose a compiled CV…</option>
+            {cvs.map((cv) => (
+              <option key={cv.id} value={cv.id}>CV #{cv.id} — {cv.job_title || 'untitled'}</option>
+            ))}
+          </select>
+          <button
+            onClick={runEvaluation}
+            disabled={!targetCv || running}
+            className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium disabled:opacity-40"
+          >
+            {running ? 'Evaluating…' : 'Run deterministic evaluation'}
+          </button>
+        </div>
       </div>
 
       {results.length === 0 && (
         <div className="card p-8 text-center">
-          <p className="text-sapphire-400">No evaluations yet. Use an AI client via MCP to run a red team test on a compiled CV.</p>
+          <p className="text-sapphire-400">
+            No evaluations yet. Pick a compiled CV above to run the built-in evaluator, or use an AI client
+            through MCP for an evaluation that writes its own narrative and gap questions.
+          </p>
         </div>
       )}
 
@@ -94,6 +158,14 @@ export default function RedTeamPage() {
                     </div>
                     <p className="text-xs text-sapphire-400">{new Date(r.created_at).toLocaleString()}</p>
                     {r.job_company && <p className="text-xs text-sapphire-400 mt-0.5">{r.job_company}</p>}
+                    {r.job_posting_id && (
+                      <Link
+                        to={`/questions?job_posting_id=${r.job_posting_id}`}
+                        className="inline-block mt-1 text-xs text-teal-600 underline"
+                      >
+                        {r.questions?.length ?? 0} gap question(s) for this CV
+                      </Link>
+                    )}
                   </div>
                   <div className={`px-5 py-2 rounded-full text-lg font-bold border ${scoreColor(r.overall_score)}`}>
                     {r.overall_score}
@@ -109,13 +181,13 @@ export default function RedTeamPage() {
                     <span>{r.phase1_qualified ? '✓' : '✗'}</span>
                     <span>Qualified</span>
                   </div>
-                  {r.dimensions?.length > 0 && (
+                  {(r.dimensions?.length ?? 0) > 0 && (
                     <span className="text-sapphire-400">{r.dimensions.length} dimensions</span>
                   )}
-                  {r.red_flags?.length > 0 && (
-                    <span className="text-red-500">{r.red_flags.length} red flag{r.red_flags.length > 1 ? 's' : ''}</span>
+                  {(r.red_flags?.length ?? 0) > 0 && (
+                    <span className="text-red-500">{r.red_flags?.length} red flag{(r.red_flags?.length ?? 0) > 1 ? 's' : ''}</span>
                   )}
-                  {r.questions?.length > 0 && (
+                  {(r.questions?.length ?? 0) > 0 && (
                     <span className="text-sapphire-400">{r.questions.length} question{r.questions.length > 1 ? 's' : ''}</span>
                   )}
                 </div>

@@ -13,6 +13,7 @@ export default function ProfilePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string>('personal');
+  const [newProjectName, setNewProjectName] = useState('');
 
   useEffect(() => {
     loadAll();
@@ -92,6 +93,49 @@ export default function ProfilePage() {
       toast('Deleted successfully');
     } catch (error) {
       toast('Failed to delete', 'error');
+    }
+  }
+
+  // Projects had a REST CRUD route, a blocks picker reading the table, and no caller anywhere - the
+  // "+ Add Project" button rendered with no onClick, so the table could never hold a row.
+  async function addProject() {
+    if (!newProjectName.trim()) { toast('A project needs a name', 'error'); return; }
+    try {
+      const res = await api('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newProjectName.trim() }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setNewProjectName('');
+      await loadAll();
+      toast('Project added');
+    } catch (error) {
+      toast('Failed to add project', 'error');
+    }
+  }
+
+  async function updateProject(id: number, field: string, value: string) {
+    try {
+      await api(`/api/projects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+      await loadAll();
+    } catch (error) {
+      toast('Failed to update project', 'error');
+    }
+  }
+
+  async function deleteProject(id: number) {
+    if (!window.confirm('Delete this project? Blocks linked to it will lose that link.')) return;
+    try {
+      await api(`/api/projects/${id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Project deleted');
+    } catch (error) {
+      toast('Failed to delete project', 'error');
     }
   }
 
@@ -487,22 +531,75 @@ export default function ProfilePage() {
             <div className="bg-white rounded-lg shadow-sm border border-cream-200 p-6">
               <h2 className="text-2xl font-bold text-sapphire-800 mb-6">Projects</h2>
               <p className="text-sapphire-600 mb-4">Manage your portfolio projects.</p>
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {projects.length === 0 && (
+                  <p className="text-sm text-sapphire-400">No projects yet. Blocks can be linked to a project from the Blocks page.</p>
+                )}
                 {projects.map(proj => (
-                  <div key={proj.id} className="border border-cream-200 rounded-lg p-3">
-                    <div className="font-medium text-sapphire-800">{proj.name}</div>
-                    {proj.technologies && (
-                      <div className="text-sm text-sapphire-600 mt-1">{proj.technologies}</div>
-                    )}
-                    {proj.description && (
-                      <div className="text-sm text-sapphire-500 mt-1 line-clamp-2">{proj.description}</div>
-                    )}
+                  <div key={proj.id} className="border border-cream-200 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                      <div>
+                        <label className="block text-sm font-medium text-sapphire-700 mb-2">Name</label>
+                        <input
+                          type="text"
+                          defaultValue={proj.name || ''}
+                          onBlur={(e) => e.target.value !== proj.name && updateProject(proj.id, 'name', e.target.value)}
+                          className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-sapphire-700 mb-2">Technologies</label>
+                        <input
+                          type="text"
+                          defaultValue={proj.technologies || ''}
+                          onBlur={(e) => e.target.value !== (proj.technologies || '') && updateProject(proj.id, 'technologies', e.target.value)}
+                          className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-sapphire-700 mb-2">Repository URL</label>
+                        <input
+                          type="text"
+                          defaultValue={proj.github_url || proj.url || ''}
+                          onBlur={(e) => updateProject(proj.id, 'github_url', e.target.value)}
+                          className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-sapphire-700 mb-2">Category</label>
+                        <input
+                          type="text"
+                          defaultValue={proj.category || 'personal'}
+                          onBlur={(e) => updateProject(proj.id, 'category', e.target.value)}
+                          className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+                    <label className="block text-sm font-medium text-sapphire-700 mb-2">Description</label>
+                    <textarea
+                      defaultValue={proj.description || ''}
+                      onBlur={(e) => updateProject(proj.id, 'description', e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <button onClick={() => deleteProject(proj.id)} className="mt-3 text-xs text-terra-600 hover:text-terra-700">
+                      Delete project
+                    </button>
                   </div>
                 ))}
               </div>
-              <button className="mt-4 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors">
-                + Add Project
-              </button>
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Project name"
+                  className="flex-1 px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <button onClick={addProject} className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors">
+                  + Add Project
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -1,10 +1,12 @@
 import { api } from '../hooks/api';
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { Question } from '../../shared/types';
 
 interface QuestionWithJob extends Question {
   job_title?: string;
   job_company?: string;
+  job_posting_id?: number;
 }
 
 export default function QuestionsPage() {
@@ -13,20 +15,53 @@ export default function QuestionsPage() {
   const [answering, setAnswering] = useState<number | null>(null);
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const jobScope = params.get('job_posting_id');
 
   async function load() {
-    const res = await api(`/api/questions${filter ? `?status=${filter}` : ''}`);
-    setQuestions(await res.json());
-    setLoading(false);
+    try {
+      const query = new URLSearchParams();
+      if (filter) query.set('status', filter);
+      if (jobScope) query.set('job_posting_id', jobScope);
+      const suffix = query.toString();
+      const res = await api(`/api/questions${suffix ? `?${suffix}` : ''}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `${res.status}`);
+      }
+      setQuestions(await res.json());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'the API did not answer');
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { load(); }, [filter]);
+  useEffect(() => { load(); }, [filter, jobScope]);
 
-  async function updateStatus(id: number, status: string) {
-    await api(`/api/questions/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, answer: status === 'answered' ? answer : null }) });
-    setAnswering(null);
-    setAnswer('');
-    load();
+  /**
+   * `answer` is only sent when the user actually typed one. Sending null on dismiss used to wipe an answer
+   * that had just been saved, and the server now distinguishes absent from null.
+   */
+  async function updateStatus(id: number, status: string, newAnswer?: string) {
+    const body: Record<string, unknown> = { status };
+    if (newAnswer !== undefined) body.answer = newAnswer;
+    try {
+      const res = await api(`/api/questions/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || `${res.status}`);
+      }
+      setAnswering(null);
+      setAnswer('');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'could not save the answer');
+    }
   }
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>;
@@ -53,6 +88,22 @@ export default function QuestionsPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-terra-50 border border-terra-300 text-sm text-terra-700">
+          {error} <button onClick={load} className="underline ml-2">Retry</button>
+        </div>
+      )}
+
+      {jobScope && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-sapphire-500">
+          <span>Scoped to job posting #{jobScope}.</span>
+          <button onClick={() => { params.delete('job_posting_id'); setParams(params); }} className="underline text-teal-600">
+            Show every question
+          </button>
+        </div>
+      )}
+
+
       {questions.length === 0 && (
         <div className="card p-8 text-center">
           <p className="text-sapphire-400">No {filter || ''} questions. Run a red team evaluation to surface gap-analysis questions.</p>
@@ -76,15 +127,36 @@ export default function QuestionsPage() {
                 {answering === q.id && (
                   <div className="mt-3 flex gap-2">
                     <input value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Your answer..." className="input flex-1" autoFocus />
-                    <button onClick={() => updateStatus(q.id, 'answered')} className="btn-primary text-xs">Save</button>
+                    <button onClick={() => updateStatus(q.id, 'answered', answer)} className="btn-primary text-xs">Save</button>
                     <button onClick={() => { setAnswering(null); setAnswer(''); }} className="btn-secondary text-xs">Cancel</button>
                   </div>
                 )}
               </div>
-              {q.status === 'pending' && answering !== q.id && (
+              {answering !== q.id && (
                 <div className="flex gap-3 shrink-0 ml-4">
-                  <button onClick={() => setAnswering(q.id)} className="text-xs text-teal-600 hover:text-mint-600">Answer</button>
-                  <button onClick={() => updateStatus(q.id, 'dismissed')} className="text-xs text-sapphire-400 hover:text-sapphire-600">Dismiss</button>
+                  {q.status === 'pending' ? (
+                    <>
+                      <button onClick={() => setAnswering(q.id)} className="text-xs text-teal-600 hover:text-mint-600">Answer</button>
+                      <button onClick={() => updateStatus(q.id, 'dismissed')} className="text-xs text-sapphire-400 hover:text-sapphire-600">Dismiss</button>
+                    </>
+                  ) : (
+                    <>
+                      {/* An answered or dismissed question used to have no affordance at all: a wrong answer
+                          could not be corrected and a mistaken dismiss could not be undone. */}
+                      <button
+                        onClick={() => { setAnswer(q.answer ?? ''); setAnswering(q.id); }}
+                        className="text-xs text-teal-600 hover:text-mint-600"
+                      >
+                        {q.status === 'answered' ? 'Edit answer' : 'Reopen'}
+                      </button>
+                      {q.status === 'answered' && (
+                        <button onClick={() => updateStatus(q.id, 'dismissed')} className="text-xs text-sapphire-400 hover:text-sapphire-600">Dismiss</button>
+                      )}
+                      {q.status === 'dismissed' && (
+                        <button onClick={() => updateStatus(q.id, 'pending')} className="text-xs text-sapphire-400 hover:text-sapphire-600">Mark pending</button>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </div>

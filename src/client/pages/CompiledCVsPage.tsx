@@ -1,4 +1,4 @@
-import { api } from '../hooks/api';
+import { api, API_BASE } from '../hooks/api';
 import { useState, useEffect } from 'react';
 import { useToast } from '../components/Toast';
 import type { CompiledCV } from '../../shared/types';
@@ -36,11 +36,72 @@ export default function CompiledCVsPage() {
   const [validationResult, setValidationResult] = useState<AtsValidationResult | null>(null);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [pendingDownloadId, setPendingDownloadId] = useState<number | null>(null);
+  const [assembling, setAssembling] = useState(false);
+  const [assemblyJobs, setAssemblyJobs] = useState<any[]>([]);
+  const [assemblyBlocks, setAssemblyBlocks] = useState<any[]>([]);
+  const [assemblySystems, setAssemblySystems] = useState<any[]>([]);
+  const [pickedJob, setPickedJob] = useState<string>('');
+  const [pickedBlocks, setPickedBlocks] = useState<number[]>([]);
+  const [pickedSystems, setPickedSystems] = useState<number[]>([]);
 
   async function load() {
-    const res = await api('/api/compiled-cvs');
-    setCvs(await res.json());
-    setLoading(false);
+    try {
+      const res = await api('/api/compiled-cvs');
+      if (!res.ok) throw new Error(String(res.status));
+      setCvs(await res.json());
+    } catch (err) {
+      toast('Could not load compiled CVs: ' + (err instanceof Error ? err.message : 'API unreachable'), 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /**
+   * The compiler lived only behind the MCP tool, so opening the app cold left this page with nothing to do.
+   * The panel pulls the same lists the scratch pads show and posts to the route that shares the tool's code.
+   */
+  async function openAssembly() {
+    setAssembling(true);
+    try {
+      const [jobs, blocks, systems] = await Promise.all([
+        api('/api/job-postings').then((r) => r.json()),
+        api('/api/blocks').then((r) => r.json()),
+        api('/api/systems').then((r) => r.json()),
+      ]);
+      setAssemblyJobs(jobs);
+      setAssemblyBlocks(blocks);
+      setAssemblySystems(systems);
+    } catch (err) {
+      toast('Could not load the material to compile from', 'error');
+      setAssembling(false);
+    }
+  }
+
+  async function runAssembly() {
+    if (!pickedJob || pickedBlocks.length === 0) {
+      toast('Pick a job posting and at least one achievement block', 'error');
+      return;
+    }
+    try {
+      const res = await api('/api/compiled-cvs/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_posting_id: Number(pickedJob),
+          block_ids: pickedBlocks,
+          system_ids: pickedSystems,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || body?.problems?.join('; ') || String(res.status));
+      toast(`CV #${body.id} assembled as version ${body.version} from ${body.blocks_used} block(s)`, 'success');
+      setAssembling(false);
+      setPickedBlocks([]);
+      setPickedSystems([]);
+      await load();
+    } catch (err) {
+      toast('Assembly failed: ' + (err instanceof Error ? err.message : 'unknown'), 'error');
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -77,18 +138,16 @@ export default function CompiledCVsPage() {
     }
   }
 
-  function proceedWithDownload() {
-    if (!pendingDownloadId) return;
-    const base = window.location.port === '3000' ? '' : 'http://localhost:3000';
-    window.open(`${base}/api/compiled-cvs/${pendingDownloadId}/pdf`, '_blank');
+  function download(id: number | null, format: 'pdf' | 'docx') {
+    if (!id) return;
+    window.open(`${API_BASE}/api/compiled-cvs/${id}/${format}`, '_blank');
+  }
+
+  function proceedWithDownload(format: 'pdf' | 'docx' = 'pdf') {
+    download(pendingDownloadId, format);
     setShowValidationModal(false);
     setPendingDownloadId(null);
     setValidationResult(null);
-  }
-
-  function downloadPdf(id: number) {
-    const base = window.location.port === '3000' ? '' : 'http://localhost:3000';
-    window.open(`${base}/api/compiled-cvs/${id}/pdf`, '_blank');
   }
 
   function copyToClipboard() {
@@ -101,14 +160,81 @@ export default function CompiledCVsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="page-title">Compiled CVs</h2>
-        <p className="text-sapphire-400 text-sm mt-1">Your tailored CVs, compiled by AI from your own words.</p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="page-title">Compiled CVs</h2>
+          <p className="text-sapphire-400 text-sm mt-1">Tailored CVs assembled from your own blocks and systems.</p>
+        </div>
+        <button onClick={assembling ? () => setAssembling(false) : openAssembly} className="btn-primary text-sm">
+          {assembling ? 'Close' : 'Assemble from blocks'}
+        </button>
       </div>
+
+      {assembling && (
+        <div className="card p-5 mb-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-sapphire-700 mb-2">Job posting</label>
+            <select
+              value={pickedJob}
+              onChange={(e) => setPickedJob(e.target.value)}
+              className="w-full px-3 py-2 border border-cream-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="">Choose a posting…</option>
+              {assemblyJobs.map((j) => (
+                <option key={j.id} value={j.id}>{j.title} — {j.company} (#{j.id})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-medium text-sapphire-700 mb-2">Achievement blocks ({pickedBlocks.length} selected)</p>
+              <div className="max-h-64 overflow-y-auto space-y-1 border border-cream-200 rounded-lg p-3">
+                {assemblyBlocks.map((b) => (
+                  <label key={b.id} className="flex items-start gap-2 text-sm text-sapphire-600">
+                    <input
+                      type="checkbox"
+                      checked={pickedBlocks.includes(b.id)}
+                      onChange={(e) => setPickedBlocks(e.target.checked ? [...pickedBlocks, b.id] : pickedBlocks.filter((x) => x !== b.id))}
+                      className="mt-1"
+                    />
+                    <span>{b.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-sapphire-700 mb-2">Systems ({pickedSystems.length} selected)</p>
+              <div className="max-h-64 overflow-y-auto space-y-1 border border-cream-200 rounded-lg p-3">
+                {assemblySystems.map((s) => (
+                  <label key={s.id} className="flex items-start gap-2 text-sm text-sapphire-600">
+                    <input
+                      type="checkbox"
+                      checked={pickedSystems.includes(s.id)}
+                      onChange={(e) => setPickedSystems(e.target.checked ? [...pickedSystems, s.id] : pickedSystems.filter((x) => x !== s.id))}
+                      className="mt-1"
+                    />
+                    <span>{s.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-sapphire-400">
+            Order matters: the CV is assembled in the sequence you tick. Education and employment are included
+            by default; the ATS check runs on the result before you download it.
+          </p>
+          <button onClick={runAssembly} className="btn-primary text-sm">Compile as a new version</button>
+        </div>
+      )}
 
       {cvs.length === 0 && (
         <div className="card p-8 text-center">
-          <p className="text-sapphire-400">No compiled CVs yet. Use an AI client via MCP to compile a CV for a job posting.</p>
+          <p className="text-sapphire-400">
+            No compiled CVs yet. Use “Assemble from blocks” above, or an AI client through MCP for a tailored
+            rewrite of your own words.
+          </p>
         </div>
       )}
 
@@ -150,7 +276,7 @@ export default function CompiledCVsPage() {
                   ) : (
                     <>
                       <button onClick={copyToClipboard} className="btn-secondary text-xs">Copy</button>
-                      <button onClick={() => validateAndDownload(selected.id)} className="btn-secondary text-xs">Download PDF</button>
+                      <button onClick={() => validateAndDownload(selected.id)} className="btn-secondary text-xs">ATS check &amp; download</button>
                       <button onClick={() => setEditMode(true)} className="btn-secondary text-xs">Edit</button>
                     </>
                   )}
@@ -213,9 +339,15 @@ export default function CompiledCVsPage() {
             <div className="p-6 border-t border-cream-300/40 flex gap-3 justify-end">
               <button onClick={() => setShowValidationModal(false)} className="btn-secondary text-sm">Cancel</button>
               {validationResult.passed ? (
-                <button onClick={proceedWithDownload} className="btn-primary text-sm">Download PDF</button>
+                <>
+                  <button onClick={() => proceedWithDownload('pdf')} className="btn-primary text-sm">Download PDF</button>
+                  <button onClick={() => proceedWithDownload('docx')} className="btn-primary text-sm">Download Word</button>
+                </>
               ) : (
-                <button onClick={proceedWithDownload} className="btn-secondary text-sm">Download Anyway</button>
+                <>
+                  <button onClick={() => proceedWithDownload('pdf')} className="btn-secondary text-sm">Download PDF anyway</button>
+                  <button onClick={() => proceedWithDownload('docx')} className="btn-secondary text-sm">Download Word anyway</button>
+                </>
               )}
             </div>
           </div>
