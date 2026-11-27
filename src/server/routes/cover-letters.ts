@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { generateCoverLetter } from '../services/cover-letter-generator.js';
 import { generatePdf } from '../services/pdf-generator.js';
+import { generateDocx } from '../services/docx-generator.js';
 
 const router = Router();
 
@@ -58,6 +59,30 @@ router.get('/download/:id', async (req, res) => {
     res.send(pdf);
   } catch (error) {
     res.status(500).json({ error: 'PDF generation failed' });
+  }
+});
+
+// Word, because a cover letter is something people edit before sending. Same empty header contract as the
+// PDF route: a letter carries no name band, so nothing is invented for it.
+router.get('/download/:id/docx', async (req, res) => {
+  const coverLetter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id) as any;
+  if (!coverLetter) {
+    return res.status(404).json({ error: 'Cover letter not found' });
+  }
+
+  try {
+    const bytes = await generateDocx({
+      name: '',
+      title: '',
+      contact: '',
+      summary: '',
+      content: coverLetter.content,
+    });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="cover-letter-${coverLetter.id}.docx"`);
+    res.send(Buffer.from(bytes));
+  } catch (error) {
+    res.status(500).json({ error: 'Word generation failed' });
   }
 });
 

@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, PDFString, PDFName } from 'pdf-lib';
+import { autoLinkify, parseMarkdown, stripMarkdown } from './markdown-blocks.js';
 
-interface PdfData {
+export interface PdfData {
   name: string;
   title: string;
   contact: string;
@@ -84,95 +85,6 @@ function sanitizeText(text: string): string {
     });
 }
 
-// Auto-linkify plain URLs in markdown
-function autoLinkify(md: string): string {
-  return md.replace(
-    /(?<!\[)(?<!\()(?<!<)(https?:\/\/)?((?:github\.com|dev\.to)\/[\w-]+)(?!\])(?!\))(?!>)/g,
-    (match, protocol, path) => {
-      if (protocol) return match;
-      return `[${path}](https://${path})`;
-    }
-  );
-}
-
-// Strip inline markdown formatting markers from text (for plain text rendering)
-function stripMarkdown(text: string): string {
-  return text.replace(/\*\*\*(.+?)\*\*\*/g, '$1')
-             .replace(/\*\*(.+?)\*\*/g, '$1')
-             .replace(/\*(.+?)\*/g, '$1');
-}
-
-// Parse markdown into structured blocks
-function parseMarkdown(md: string): Array<{type: string; text: string; links: Array<{text: string; url: string}>}> {
-  const linked = autoLinkify(md);
-  const lines = linked.split('\n');
-  const blocks: Array<{type: string; text: string; links: Array<{text: string; url: string}>}> = [];
-  
-  let currentBlock: {type: string; text: string; links: Array<{text: string; url: string}>} | null = null;
-  
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      if (currentBlock) {
-        blocks.push(currentBlock);
-        currentBlock = null;
-      }
-      continue;
-    }
-    
-    const links: Array<{text: string; url: string}> = [];
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    let match;
-    while ((match = linkRegex.exec(trimmed)) !== null) {
-      links.push({ text: match[1], url: match[2] });
-    }
-    
-    const plainText = trimmed.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-    
-    if (trimmed.startsWith('# ')) {
-      if (currentBlock) blocks.push(currentBlock);
-      currentBlock = { type: 'h1', text: plainText.substring(2), links };
-    } else if (trimmed.startsWith('## ')) {
-      if (currentBlock) blocks.push(currentBlock);
-      currentBlock = { type: 'h2', text: plainText.substring(3), links };
-    } else if (trimmed.startsWith('### ')) {
-      if (currentBlock) blocks.push(currentBlock);
-      currentBlock = { type: 'h3', text: plainText.substring(4), links };
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      if (!currentBlock || currentBlock.type !== 'list') {
-        if (currentBlock) blocks.push(currentBlock);
-        currentBlock = { type: 'list', text: '', links: [] };
-      }
-      currentBlock.text += (currentBlock.text ? '\n' : '') + '• ' + plainText.substring(2);
-      currentBlock.links.push(...links);
-    } else if (trimmed === '---') {
-      if (currentBlock) blocks.push(currentBlock);
-      blocks.push({ type: 'hr', text: '', links: [] });
-      currentBlock = null;
-    } else {
-      // Check if this line starts with bold text (common in resumes for skill categories)
-      const startsWithBold = trimmed.startsWith('**');
-      const prevEndsWithBold = currentBlock && currentBlock.text.trim().endsWith('**');
-      
-      // Start a new paragraph if:
-      // 1. No current block, or
-      // 2. Current block is not a paragraph/emphasis, or
-      // 3. This line starts with bold text AND previous didn't end with bold (new section)
-      if (!currentBlock || (currentBlock.type !== 'p' && currentBlock.type !== 'em') || (startsWithBold && !prevEndsWithBold)) {
-        if (currentBlock) blocks.push(currentBlock);
-        const isEmphasis = trimmed.startsWith('*') && trimmed.endsWith('*') && !trimmed.startsWith('**');
-        currentBlock = { type: isEmphasis ? 'em' : 'p', text: '', links: [] };
-      }
-      // Add newline separator between bold-starting lines within same paragraph
-      const separator = (currentBlock.text && startsWithBold) ? '\n' : ' ';
-      currentBlock.text += (currentBlock.text ? separator : '') + plainText;
-      currentBlock.links.push(...links);
-    }
-  }
-  
-  if (currentBlock) blocks.push(currentBlock);
-  return blocks;
-}
 
 // Helper to estimate height of wrapped text
 function estimateTextHeight(text: string, size: number, maxWidth: number, lineHeight: number, font: any): number {

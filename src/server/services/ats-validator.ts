@@ -177,7 +177,7 @@ export function checkAtsCompatibility(content: string): ValidationResult[] {
   return results;
 }
 
-function extractKeywords(jobPosting: any): string[] {
+export function extractKeywords(jobPosting: any): string[] {
   if (!jobPosting) return [];
   // Same reason as the export route: `content` is the only body column job_postings has.
   const text = `${jobPosting.title || ''} ${jobPosting.content || ''}`.toLowerCase();

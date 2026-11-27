@@ -2,7 +2,24 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import db from '../db.js';
 import { saveCoverLetterAsNewVersion } from '../services/cover-letter-versions.js';
-import { RED_TEAM_DIMENSIONS, RECOMMENDATION_THRESHOLDS, validateRedTeamPayload } from '../services/red-team-rubric.js';
+import { RED_TEAM_DIMENSIONS, RECOMMENDATION_THRESHOLDS } from '../services/red-team-rubric.js';
+import { saveRedTeamResult } from '../services/red-team-store.js';
+import { createCompiledCv } from '../services/compiled-cv-store.js';
+import { assembleCv } from '../services/cv-assembly.js';
+import { StoreError, setApplicationStatus, createJobPosting } from '../services/job-posting-store.js';
+import { listBlocks } from '../services/block-store.js';
+
+/** One error translation for every tool that now shares a store with the REST routes. */
+function asToolResult(run: () => unknown) {
+  try {
+    return { content: [{ type: 'text' as const, text: JSON.stringify(run(), null, 2) }] };
+  } catch (err) {
+    if (err instanceof StoreError) {
+      return { content: [{ type: 'text' as const, text: err.message }], isError: true };
+    }
+    throw err;
+  }
+}
 
 export function registerTools(server: McpServer) {
   // 1. list_systems
@@ -17,34 +34,9 @@ export function registerTools(server: McpServer) {
     'List blocks from scratch pad 2, optionally filtered by skill or search term',
     { skill: z.string().optional().describe('Filter by skill name'), search: z.string().optional().describe('Search in title and content') },
     async ({ skill, search }) => {
-      let query = `
-        SELECT b.*, GROUP_CONCAT(s.name) as skill_names
-        FROM blocks b
-        LEFT JOIN block_skills bs ON bs.block_id = b.id
-        LEFT JOIN skills s ON s.id = bs.skill_id
-      `;
-      const conditions: string[] = [];
-      const params: unknown[] = [];
-      if (skill) {
-        conditions.push('b.id IN (SELECT bs2.block_id FROM block_skills bs2 JOIN skills s2 ON s2.id = bs2.skill_id WHERE s2.name = ?)');
-        params.push(skill);
-      }
-      if (search) {
-        conditions.push('(b.title LIKE ? OR b.content LIKE ?)');
-        params.push(`%${search}%`, `%${search}%`);
-      }
-      if (conditions.length) query += ' WHERE ' + conditions.join(' AND ');
-      query += ' GROUP BY b.id ORDER BY b.updated_at DESC';
-
-      const rows = db.prepare(query).all(...params) as any[];
-      const blocks = rows.map(r => ({
-        id: r.id, title: r.title, content: r.content,
-        skills: r.skill_names ? r.skill_names.split(',') : [],
-        is_generic: r.is_generic === 1,
-        target_companies: r.target_companies || '',
-        created_at: r.created_at, updated_at: r.updated_at,
-      }));
-      return { content: [{ type: 'text', text: JSON.stringify(blocks, null, 2) }] };
+      // The same projection the UI reads, link ids included: an agent that could not see the links would
+      // write them away the same way the form did.
+      return { content: [{ type: 'text' as const, text: JSON.stringify(listBlocks(db, { skill, search }), null, 2) }] };
     }
   );
 
@@ -154,97 +146,17 @@ export function registerTools(server: McpServer) {
       include_employment: z.boolean().optional().describe('Include employment section (default: true)'),
     },
     async ({ job_posting_id, block_ids, system_ids, include_education = true, include_employment = true }) => {
-      const job = db.prepare('SELECT * FROM job_postings WHERE id = ?').get(job_posting_id) as any;
-      if (!job) return { content: [{ type: 'text', text: 'Job posting not found' }], isError: true };
-
-      const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
-      
-      // Get selected blocks
-      const blocks = block_ids.length > 0 
-        ? db.prepare(`SELECT * FROM blocks WHERE id IN (${block_ids.map(() => '?').join(',')})`).all(...block_ids) as any[]
-        : [];
-      
-      // Get selected systems
-      const systems = system_ids && system_ids.length > 0
-        ? db.prepare(`SELECT * FROM systems WHERE id IN (${system_ids.map(() => '?').join(',')})`).all(...system_ids) as any[]
-        : [];
-      
-      // Get education and employment
-      const education = include_education ? db.prepare('SELECT * FROM education ORDER BY sort_order ASC').all() as any[] : [];
-      const employment = include_employment ? db.prepare('SELECT * FROM employment ORDER BY sort_order ASC').all() as any[] : [];
-      
-      // Compile CV markdown from actual database content
-      let markdown = `# ${templateCv.full_name || 'Your Name'}\n`;
-      markdown += `**Email:** ${templateCv.email || ''} | **Phone:** ${templateCv.phone || ''} | **Location:** ${templateCv.location || ''}\n`;
-      if (templateCv.linkedin || templateCv.website) {
-        markdown += `**Links:** ${[templateCv.linkedin, templateCv.website].filter(Boolean).join(' | ')}\n`;
-      }
-      markdown += '\n';
-      
-      if (templateCv.summary) {
-        markdown += `## Summary\n${templateCv.summary}\n\n`;
-      }
-      
-      if (systems.length > 0) {
-        markdown += `## Technical Systems\n\n`;
-        for (const sys of systems) {
-          markdown += `### ${sys.name}\n`;
-          if (sys.industry) markdown += `*${sys.industry}*\n\n`;
-          markdown += `${sys.description}\n\n`;
-          if (sys.notes) markdown += `*${sys.notes}*\n\n`;
-        }
-      }
-      
-      if (blocks.length > 0) {
-        markdown += `## Key Achievements\n\n`;
-        for (const block of blocks) {
-          markdown += `### ${block.title}\n`;
-          markdown += `${block.content}\n\n`;
-        }
-      }
-      
-      if (employment.length > 0) {
-        markdown += `## Professional Experience\n\n`;
-        for (const emp of employment) {
-          markdown += `### ${emp.title} — ${emp.company}\n`;
-          markdown += `*${emp.start_date} – ${emp.end_date || 'Present'} | ${emp.location || ''}*\n\n`;
-          markdown += `${emp.description}\n\n`;
-        }
-      }
-      
-      if (education.length > 0) {
-        markdown += `## Education\n\n`;
-        for (const edu of education) {
-          markdown += `### ${edu.institution}\n`;
-          markdown += `${edu.degree || ''}${edu.field ? ` in ${edu.field}` : ''} (${edu.start_date || ''} - ${edu.end_date || ''})\n`;
-          if (edu.details) markdown += `${edu.details}\n`;
-          markdown += '\n';
-        }
-      }
-      
-      // Save compiled CV
-      const existing = db.prepare(
-        'SELECT MAX(version) as max_version FROM compiled_cvs WHERE job_posting_id = ?'
-      ).get(job_posting_id) as any;
-      const version = (existing?.max_version ?? 0) + 1;
-      
-      const result = db.prepare(
-        'INSERT INTO compiled_cvs (job_posting_id, content, version) VALUES (?, ?, ?)'
-      ).run(job_posting_id, markdown, version);
-      
-      const saved = db.prepare('SELECT * FROM compiled_cvs WHERE id = ?').get(result.lastInsertRowid);
-      
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: JSON.stringify({
-            compiled_cv: saved,
-            blocks_used: blocks.length,
-            systems_used: systems.length,
-            message: 'CV compiled from database content'
-          }, null, 2) 
-        }] 
-      };
+      // The layout moved to cv-assembly.ts so the desktop app can compile a CV without an AI client,
+      // and so the tool and POST /api/compiled-cvs/assemble cannot grow different templates.
+      return asToolResult(() => {
+        const saved = assembleCv(db, { job_posting_id, block_ids, system_ids, include_education, include_employment });
+        return {
+          compiled_cv: saved,
+          blocks_used: saved.blocks_used,
+          systems_used: saved.systems_used,
+          message: 'CV compiled from database content'
+        };
+      });
     }
   );
 
@@ -333,69 +245,10 @@ export function registerTools(server: McpServer) {
       })).optional().describe('Gap-analysis questions for the user'),
     },
     async ({ compiled_cv_id, phase1_qualified, phase2_score, phase3_summary, overall_score, full_analysis, dimensions, red_flags, recommendation, job_fit_summary, questions }) => {
-      const cv = db.prepare('SELECT id FROM compiled_cvs WHERE id = ?').get(compiled_cv_id);
-      if (!cv) return { content: [{ type: 'text', text: 'Compiled CV not found' }], isError: true };
-
-      // zod checks shape; this checks that the stored score is the score the dimensions actually describe.
-      const problems = validateRedTeamPayload({ phase1_qualified, phase2_score, phase3_summary, overall_score, recommendation, dimensions, red_flags });
-      if (problems.length) {
-        return {
-          content: [{ type: 'text', text: 'Red team result rejected:\n- ' + problems.join('\n-') }],
-          isError: true,
-        };
-      }
-
-      const result = db.prepare(
-        `INSERT INTO red_team_results (compiled_cv_id, phase1_qualified, phase2_score, phase3_summary, overall_score, full_analysis, recommendation, red_flags, job_fit_summary)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(compiled_cv_id, phase1_qualified, phase2_score, phase3_summary, overall_score, full_analysis, recommendation ?? null, JSON.stringify(red_flags ?? []), job_fit_summary ?? null);
-
-      const resultId = Number(result.lastInsertRowid);
-
-      if (dimensions?.length) {
-        const insertDim = db.prepare(
-          'INSERT INTO red_team_dimensions (red_team_result_id, dimension_name, score, weight, feedback, strengths, gaps, evidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        );
-        for (const dim of dimensions) {
-          insertDim.run(
-            resultId,
-            dim.dimension_name,
-            dim.score,
-            dim.weight,
-            dim.feedback,
-            JSON.stringify(dim.strengths ?? []),
-            JSON.stringify(dim.gaps ?? []),
-            JSON.stringify(dim.evidence ?? [])
-          );
-        }
-      }
-
-      if (questions?.length) {
-        const insertQ = db.prepare(
-          'INSERT INTO questions (red_team_result_id, question, context, skill_tag) VALUES (?, ?, ?, ?)'
-        );
-        for (const q of questions) {
-          insertQ.run(resultId, q.question, q.context ?? null, q.skill_tag ?? null);
-        }
-      }
-
-      const saved = db.prepare('SELECT * FROM red_team_results WHERE id = ?').get(resultId) as any;
-      const savedDimensions = db.prepare('SELECT * FROM red_team_dimensions WHERE red_team_result_id = ?').all(resultId) as any[];
-      const savedQuestions = db.prepare('SELECT * FROM questions WHERE red_team_result_id = ?').all(resultId);
-      
-      const dimensionsWithParsed = savedDimensions.map(d => ({
-        ...d,
-        strengths: d.strengths ? JSON.parse(d.strengths) : [],
-        gaps: d.gaps ? JSON.parse(d.gaps) : [],
-        evidence: d.evidence ? JSON.parse(d.evidence) : [],
+      return asToolResult(() => saveRedTeamResult(db, {
+        compiled_cv_id, phase1_qualified, phase2_score, phase3_summary, overall_score, full_analysis,
+        recommendation, job_fit_summary, dimensions, red_flags, questions,
       }));
-
-      return { content: [{ type: 'text', text: JSON.stringify({ 
-        ...saved, 
-        red_flags: saved.red_flags ? JSON.parse(saved.red_flags) : [],
-        dimensions: dimensionsWithParsed,
-        questions: savedQuestions 
-      }, null, 2) }] };
     }
   );
 
@@ -694,20 +547,11 @@ export function registerTools(server: McpServer) {
       red_team_result_id: z.number().optional().describe('Red team result ID to link'),
     },
     async ({ job_posting_id, status, compiled_cv_id, red_team_result_id }) => {
-      const appliedDate = status === 'applied' ? new Date().toISOString() : null;
-      
-      db.prepare(
-        `UPDATE job_postings SET 
-         application_status = ?, 
-         applied_date = COALESCE(?, applied_date),
-         compiled_cv_id = COALESCE(?, compiled_cv_id),
-         red_team_result_id = COALESCE(?, red_team_result_id),
-         updated_at = datetime('now')
-         WHERE id = ?`
-      ).run(status, appliedDate, compiled_cv_id ?? null, red_team_result_id ?? null, job_posting_id);
-      
-      const updated = db.prepare('SELECT * FROM job_postings WHERE id = ?').get(job_posting_id);
-      return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] };
+      return asToolResult(() => setApplicationStatus(db, job_posting_id, {
+        application_status: status,
+        ...(compiled_cv_id !== undefined ? { compiled_cv_id } : {}),
+        ...(red_team_result_id !== undefined ? { red_team_result_id } : {}),
+      }));
     }
   );
 
@@ -856,21 +700,10 @@ export function registerTools(server: McpServer) {
       url: z.string().optional().describe('Job URL'),
     },
     async ({ title, company, description, url }) => {
-      const result = db.prepare(
-        'INSERT INTO job_postings (title, company, url, content, status, application_status) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(title, company, url || null, description, 'active', 'not_applied');
-      
-      const job = db.prepare('SELECT * FROM job_postings WHERE id = ?').get(result.lastInsertRowid);
-      
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: JSON.stringify({
-            message: 'Job imported successfully',
-            job
-          }, null, 2) 
-        }] 
-      };
+      return asToolResult(() => ({
+        message: 'Job imported successfully',
+        job: createJobPosting(db, { title, company, url: url ?? null, content: description }),
+      }));
     }
   );
 

@@ -1,95 +1,67 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { generatePdf } from '../services/pdf-generator.js';
+import { generateDocx } from '../services/docx-generator.js';
+import { buildCvExport } from '../services/cv-export.js';
+import { assembleCv } from '../services/cv-assembly.js';
 import { validateForAts } from '../services/ats-validator.js';
+import {
+  createCompiledCv, deleteCompiledCv, getCompiledCv, listCompiledCvs, updateCompiledCv,
+} from '../services/compiled-cv-store.js';
 
 const router = Router();
 
 router.get('/', (req, res) => {
-  const { job_posting_id } = req.query;
-  let query = `
-    SELECT cc.*, jp.title as job_title, jp.company as job_company
-    FROM compiled_cvs cc
-    JOIN job_postings jp ON jp.id = cc.job_posting_id
-  `;
-  const params: unknown[] = [];
-  if (job_posting_id) {
-    query += ' WHERE cc.job_posting_id = ?';
-    params.push(job_posting_id);
-  }
-  query += ' ORDER BY cc.updated_at DESC';
-  res.json(db.prepare(query).all(...params));
+  res.json(listCompiledCvs(db, req.query.job_posting_id));
 });
 
 router.post('/', (req, res) => {
-  const { job_posting_id, content } = req.body;
-  if (!job_posting_id || !content) return res.status(400).json({ error: 'job_posting_id and content are required' });
-  const existing = db.prepare('SELECT MAX(version) as max_version FROM compiled_cvs WHERE job_posting_id = ?').get(job_posting_id) as any;
-  const version = (existing?.max_version ?? 0) + 1;
-  const result = db.prepare('INSERT INTO compiled_cvs (job_posting_id, content, version) VALUES (?, ?, ?)').run(job_posting_id, content, version);
-  res.status(201).json(db.prepare('SELECT * FROM compiled_cvs WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(createCompiledCv(db, req.body));
+});
+
+// The human path to the same assembly the MCP tool performs.
+router.post('/assemble', (req, res) => {
+  res.status(201).json(assembleCv(db, req.body));
 });
 
 router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM compiled_cvs WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'not found' });
-  res.json(row);
+  res.json(getCompiledCv(db, req.params.id));
 });
 
 router.put('/:id', (req, res) => {
-  const { content } = req.body;
-  db.prepare("UPDATE compiled_cvs SET content = COALESCE(?, content), updated_at = datetime('now') WHERE id = ?").run(content ?? null, req.params.id);
-  res.json(db.prepare('SELECT * FROM compiled_cvs WHERE id = ?').get(req.params.id));
+  res.json(updateCompiledCv(db, req.params.id, req.body.content));
 });
 
 router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM compiled_cvs WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: 'not found' });
-  res.json({ deleted: true });
+  res.json(deleteCompiledCv(db, req.params.id));
+});
+
+router.delete('/:id', (req, res) => {
+  res.json(deleteCompiledCv(db, req.params.id));
 });
 
 router.get('/:id/pdf', async (req, res) => {
-  const cv = db.prepare('SELECT * FROM compiled_cvs WHERE id = ?').get(req.params.id) as any;
-  if (!cv) return res.status(404).json({ error: 'not found' });
-
-  const templateCv = db.prepare('SELECT * FROM template_cv WHERE id = 1').get() as any;
-  const jobPosting = db.prepare('SELECT * FROM job_postings WHERE id = ?').get(cv.job_posting_id) as any;
-  const contact = [templateCv?.email, templateCv?.phone, templateCv?.location, templateCv?.linkedin, templateCv?.website].filter(Boolean).join(' | ');
-
-  const keywords: string[] = [];
-  if (jobPosting) {
-    // A job_postings row stores the whole posting in `content`; description/requirements/skills were columns
-    // that never existed, so this matched against the title alone.
-    const text = `${jobPosting.title || ''} ${jobPosting.content || ''}`.toLowerCase();
-    const techKeywords = [
-      'rust', 'typescript', 'python', 'go', 'docker', 'kubernetes', 'aws', 'gcp',
-      'postgres', 'react', 'node', 'api', 'backend', 'remote', 'microservices',
-    ];
-    keywords.push(...techKeywords.filter(kw => text.includes(kw)));
-  }
-
-  // A tailored CV may carry its own Executive Summary; the profile-pad summary is the fallback, not the override.
-  const ownSummary = (cv.content || '').replace(/\r\n/g, '\n').match(/^## Executive Summary\n([\s\S]+?)(?=\n## )/m)?.[1]?.trim();
-
+  const { pdf, basename } = buildCvExport(db, req.params.id);
   try {
-    const pdf = await generatePdf({
-      name: templateCv?.full_name || 'Your Name',
-      title: jobPosting?.title || templateCv?.professional_title || '',
-      contact,
-      summary: ownSummary || templateCv?.summary || '',
-      content: cv.content,
-      jobTitle: jobPosting?.title || '',
-      jobCompany: jobPosting?.company || '',
-      keywords,
-    });
+    const bytes = await generatePdf(pdf);
     res.setHeader('Content-Type', 'application/pdf');
-    const filename = jobPosting
-      ? `${templateCv?.full_name?.replace(/\s+/g, '_') || 'CV'}_${jobPosting.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'CV'}.pdf`
-      : `cv-${cv.id}.pdf`;
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(pdf);
+    res.setHeader('Content-Disposition', `attachment; filename="${basename}.pdf"`);
+    res.send(Buffer.from(bytes));
   } catch (err) {
     const message = err instanceof Error ? err.message : 'PDF generation failed';
+    res.status(500).json({ error: message });
+  }
+});
+
+router.get('/:id/docx', async (req, res) => {
+  const { pdf, basename } = buildCvExport(db, req.params.id);
+  try {
+    const bytes = await generateDocx(pdf);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${basename}.docx"`);
+    res.send(Buffer.from(bytes));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Word generation failed';
     res.status(500).json({ error: message });
   }
 });

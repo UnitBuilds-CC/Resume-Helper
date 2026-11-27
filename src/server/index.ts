@@ -4,6 +4,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import db from './db.js';
+import { StoreError } from './services/job-posting-store.js';
 import systemsRouter from './routes/systems.js';
 import blocksRouter from './routes/blocks.js';
 import skillsRouter from './routes/skills.js';
@@ -63,8 +64,22 @@ app.get('/api/dashboard', (_req, res) => {
   res.json({ systems_count, blocks_count, skills_count, job_postings_count, compiled_cvs_count, pending_questions_count });
 });
 
-const clientDist = join(__dirname, '../../dist/client');
-if (existsSync(clientDist)) {
+// An unmatched /api path must answer like an API. Without this the SPA shell was returned with status 200,
+// so a client calling a route that does not exist got HTML where it expected JSON and never saw a failure.
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'no such endpoint: ' + _req.method + ' ' + _req.originalUrl });
+});
+
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof StoreError) {
+    res.status(err.status).json({ error: err.message, problems: err.problems });
+    return;
+  }
+  console.error('[api]', err.message);
+  res.status(500).json({ error: 'internal error' });
+});
+
+const clientDist = join(__dirname, '../../dist/client');if (existsSync(clientDist)) {
   app.use(express.static(clientDist));
   app.get('*path', (_req, res) => {
     res.sendFile(join(clientDist, 'index.html'));

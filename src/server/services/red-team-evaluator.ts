@@ -1,4 +1,5 @@
 import type { CompiledCV, JobPosting, TemplateCV, System, Block, Education, Employment, Recommendation, RedFlag } from '../../shared/types.js';
+import { DIMENSION_WEIGHTS, recomputeOverall } from './red-team-rubric.js';
 
 interface DimensionEvaluation {
   dimension_name: string;
@@ -18,19 +19,6 @@ interface RedTeamEvaluationResult {
   job_fit_summary: string;
   phase1_qualified: boolean;
 }
-
-const DIMENSION_WEIGHTS = {
-  technical_skills: 0.25,
-  experience_relevance: 0.20,
-  achievement_focus: 0.15,
-  seniority_level: 0.10,
-  education: 0.05,
-  location_logistics: 0.05,
-  communication_quality: 0.08,
-  culture_fit: 0.07,
-  cv_structure: 0.03,
-  red_flags: 0.02
-};
 
 export function evaluateRedTeam(
   compiledCv: CompiledCV,
@@ -554,26 +542,14 @@ function detectRedFlags(employment: Employment[]): RedFlag[] {
   return flags;
 }
 
-function calculateWeightedScore(dimensions: DimensionEvaluation[], redFlags: RedFlag[]): number {
-  let weightedSum = 0;
-  let totalWeight = 0;
-  
-  for (const dim of dimensions) {
-    if (dim.dimension_name === 'red_flags') {
-      const penalty = (100 - dim.score) * dim.weight;
-      weightedSum -= penalty;
-    } else {
-      weightedSum += dim.score * dim.weight;
-      totalWeight += dim.weight;
-    }
-  }
-  
-  const normalizedScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
-  
-  const criticalFlags = redFlags.filter(f => f.severity === 'critical');
-  const criticalPenalty = criticalFlags.length * 10;
-  
-  return Math.max(0, Math.min(100, Math.round(normalizedScore - criticalPenalty)));
+/**
+ * One arithmetic for the whole product: the rounded weighted sum the rubric declares and the save paths
+ * validate. This used to normalize by the non-red_flags weights and then subtract a further 10 points per
+ * critical flag, so its total could never satisfy the validator - and the flag penalties were counted twice,
+ * once inside the red_flags dimension score and again here. Critical flags still drive the recommendation.
+ */
+function calculateWeightedScore(dimensions: DimensionEvaluation[], _redFlags: RedFlag[]): number {
+  return Math.max(0, Math.min(100, recomputeOverall(dimensions)));
 }
 
 function generateRecommendation(score: number, redFlags: RedFlag[]): Recommendation {
