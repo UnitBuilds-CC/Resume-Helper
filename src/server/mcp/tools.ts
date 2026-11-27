@@ -805,7 +805,7 @@ export function registerTools(server: McpServer) {
         content: [{ 
           type: 'text', 
           text: JSON.stringify({
-            message: 'Application workflow started. Status updated to "preparing". Use prepare_compilation to get data for CV compilation, then save_compiled_cv to save it, then prepare_red_team to evaluate, then generate_application_answers to generate answers.',
+            message: 'Application workflow started. Status updated to "preparing". Use prepare_compilation to get data for CV compilation, then either save it with compile_cv_from_blocks or POST /api/compiled-cvs with {job_posting_id, content} - there is no save_compiled_cv tool - then prepare_red_team to evaluate, then save_red_team_result, then generate_application_answers to generate answers.',
             job_posting: job,
             bundle_summary: {
               systems_count: systems.length,
